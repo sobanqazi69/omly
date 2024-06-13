@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "124317861334",
+    "project_id": "live13-15437",
+    "storage_bucket": "live13-15437.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:124317861334:android:a61c9f305387e9a5be9077",
+        "android_client_info": {
+          "package_name": "com.live13"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBTWySEPqTKXfVjWGFnNHe9OgXQm2svUhE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
