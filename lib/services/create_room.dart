@@ -10,8 +10,11 @@ Future<void> addRoomData(String roomName, String description, List<String> inter
       'description': description,
       'interests': interests,
       'createdAt': FieldValue.serverTimestamp(),
-      'participants': []
+      'participants': [],
+      'channelId' : null
     };
+
+      
 
     await firestore.collection('rooms').add(roomData);
 

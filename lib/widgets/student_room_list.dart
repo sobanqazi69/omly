@@ -43,7 +43,7 @@ class UsersRoomsList extends StatelessWidget {
                   child: Padding(
                     padding: EdgeInsets.only(bottom: 8.0, left: 8.0, right: 8.0),
                     child: Container(
-                      height: Get.height * .21,
+                      height: Get.height * .23,
                       decoration: BoxDecoration(
                         color: Color.fromARGB(217, 244, 67, 54),
                         borderRadius: BorderRadius.circular(20),

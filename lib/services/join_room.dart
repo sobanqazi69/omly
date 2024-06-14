@@ -46,6 +46,11 @@ Future<void> joinRoom(String roomName, String userId, BuildContext context, Stri
           'role': userRole
         });
 
+         String channelId = generateChannelId();
+
+    updateChannelIdIfNull
+ (roomName , description , channelId) ;
+
 
         // Navigate to the RoomScreen
         CustomNavigator().pushTo(context, RoomScreen(roomName: roomName, roomDesc: description));
@@ -60,3 +65,34 @@ Future<void> joinRoom(String roomName, String userId, BuildContext context, Stri
     print("Error joining room: $e");
   }
 }
+
+
+
+Future<void> updateChannelIdIfNull(String roomName, String roomDesc, String newChannelId) async {
+  try {
+    // Query the documents
+    QuerySnapshot querySnapshot = await FirebaseFirestore.instance
+        .collection('rooms')
+        .where('roomName', isEqualTo: roomName)
+        .where('description', isEqualTo: roomDesc)
+        .get();
+        
+    // Loop through the documents and update the channelId if it's null
+    for (QueryDocumentSnapshot doc in querySnapshot.docs) {
+      if (doc['channelId'] == null) {
+        await doc.reference.update({'channelId': newChannelId});
+        print('Channel ID updated successfully.');
+      } else {
+        print('Channel ID already exists: ${doc['channelId']}');
+      }
+    }
+  } catch (e) {
+    print('Error updating Channel ID: $e');
+  }
+}
+
+ String generateChannelId() {
+    // Generate a random channel ID (you can customize this function as needed)
+    return DateTime.now().millisecondsSinceEpoch.toString();
+  }
+
