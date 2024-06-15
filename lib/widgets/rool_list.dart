@@ -11,13 +11,15 @@ class UsersRoomsList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: FutureBuilder<List<Map<String, dynamic>>>(
-        future: fetchRooms(),
+      body: StreamBuilder<List<Map<String, dynamic>>>(
+        stream: fetchRooms(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return Center(child: CircularProgressIndicator());
           } else if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
+            print(snapshot.error);
+
+            return Center(child: Text(''));
           } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
             return Center(child: Text('No rooms found'));
           } else {
@@ -27,8 +29,10 @@ class UsersRoomsList extends StatelessWidget {
               itemBuilder: (context, index) {
                 final room = rooms[index];
                 final roomName = room['roomName'];
+                final roomId = room['roomId'];
                 final description = room['description'];
-                final createdAt = room['createdAt']?.toDate(); // Assuming createdAt is a Timestamp
+                final createdAt = room['createdAt']
+                    ?.toDate(); // Assuming createdAt is a Timestamp
                 final interests = room['interests'];
                 final participants = room['participants'];
                 final participantsCount = participants.length;
@@ -37,13 +41,15 @@ class UsersRoomsList extends StatelessWidget {
                   onTap: () async {
                     User? user = FirebaseAuth.instance.currentUser;
                     if (user != null) {
-                      await joinRoom(roomName, user.uid , context , description);
+                      await joinRoom(
+                          roomName, user.uid, context, description, roomId);
                     }
                   },
                   child: Padding(
-                    padding: EdgeInsets.only(bottom: 8.0, left: 8.0, right: 8.0),
+                    padding:
+                        EdgeInsets.only(bottom: 8.0, left: 8.0, right: 8.0),
                     child: Container(
-                      height: Get.height * .23,
+                      height: Get.height * .25,
                       decoration: BoxDecoration(
                         color: Color.fromARGB(217, 244, 67, 54),
                         borderRadius: BorderRadius.circular(20),
@@ -57,7 +63,8 @@ class UsersRoomsList extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Padding(
-                                padding: const EdgeInsets.only(left: 20, top: 10),
+                                padding:
+                                    const EdgeInsets.only(left: 20, top: 10),
                                 child: Text(
                                   'Live',
                                   style: style(
@@ -68,7 +75,8 @@ class UsersRoomsList extends StatelessWidget {
                                 ),
                               ),
                               Padding(
-                                padding: const EdgeInsets.only(left: 20, top: 10),
+                                padding:
+                                    const EdgeInsets.only(left: 20, top: 10),
                                 child: Text(
                                   roomName,
                                   style: style(
@@ -79,7 +87,8 @@ class UsersRoomsList extends StatelessWidget {
                                 ),
                               ),
                               Padding(
-                                padding: const EdgeInsets.only(left: 20, top: 10, bottom: 10),
+                                padding: const EdgeInsets.only(
+                                    left: 20, top: 10, bottom: 10),
                                 child: Text(
                                   '$participantsCount Members Joined',
                                   style: style(
@@ -89,16 +98,21 @@ class UsersRoomsList extends StatelessWidget {
                                   ),
                                 ),
                               ),
-                              Container(width: double.infinity, height: 2, color: AppColor.white),
+                              Container(
+                                  width: double.infinity,
+                                  height: 2,
+                                  color: AppColor.white),
                               Padding(
-                                padding: const EdgeInsets.only(left: 20, top: 10),
+                                padding:
+                                    const EdgeInsets.only(left: 20, top: 5),
                                 child: Wrap(
                                   spacing: 8.0,
                                   children: interests.map<Widget>((interest) {
                                     return Chip(
                                       label: Text(
                                         '#' + interest,
-                                        style: style(family: AppFOnts.gMedium, size: 18),
+                                        style: style(
+                                            family: AppFOnts.gMedium, size: 18),
                                       ),
                                     );
                                   }).toList(),

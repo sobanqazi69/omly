@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:live_13/Config/app_theme.dart';
 import 'package:live_13/Utils/custom_screen.dart';
 import 'package:live_13/config/app_fonts.dart';
@@ -11,15 +12,10 @@ class Chips extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
         padding: const EdgeInsets.all(2.0),
-        child: Column(
-          children: [
-            SizedBox(
-              height: CustomScreenUtil.screenHeight * .1,
-              child: CustomChipSelection(tags: tags),
-            ),
+        child: 
+            CustomChipSelection(tags: tags),
            
-          ],
-        ));
+         );
     
   }
 }
@@ -55,7 +51,7 @@ class _CustomChipSelectionState extends State<CustomChipSelection> {
   Widget build(BuildContext context) {
     return Wrap(
       
-      spacing: 8.0,
+      spacing: 5.0,
       children: widget.tags.map((tag) {
         final isSelected = selectedTags.contains(tag);
         return ChoiceChip(
@@ -66,7 +62,7 @@ class _CustomChipSelectionState extends State<CustomChipSelection> {
           onSelected: (_) => _toggleSelection(tag),
           selectedColor: Colors.red,
           backgroundColor: Color.fromARGB(25, 158, 158, 158),
-          labelStyle: style(family: AppFOnts.gRegular, size: 18)
+          labelStyle: style(family: AppFOnts.gRegular, size: Get.width * .035)
         );
       }).toList(),
     );

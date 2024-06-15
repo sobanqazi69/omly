@@ -5,7 +5,7 @@ import 'package:live_13/config/app_spacing.dart';
 import 'package:live_13/config/app_theme.dart';
 import 'package:live_13/constants/constant_text.dart';
 import 'package:live_13/services/auth_service.dart';
-import 'package:live_13/widgets/student_room_list.dart';
+import 'package:live_13/widgets/rool_list.dart';
 import 'package:live_13/widgets/dialog_alert.dart';
 
 class UserScreen extends StatefulWidget {

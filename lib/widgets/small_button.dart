@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:live_13/Config/app_colors.dart';
 import 'package:live_13/Config/app_theme.dart';
 import 'package:live_13/Utils/custom_screen.dart';
@@ -24,7 +25,7 @@ class SmallCustomButton extends StatelessWidget {
             text,
             style: style(
               family: AppFOnts.gBold,
-              size: 18,
+              size: Get.width* .04,
               clr: AppColor.white
             ),
           ),

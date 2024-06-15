@@ -46,16 +46,17 @@ void showCustomDialog({
             height: space4,
           ),
           Chips(),
-          SizedBox(
-            height: space6,
-          ),
+          // SizedBox(
+          //   height: space10,
+          // ),
           SmallCustomButton(
             text: 'Create Room',
             onTap: () {
              addRoomData(
               NameController.text.toString(),
               DescController.text.toString(),
-              selectedTags
+              selectedTags,
+              context
             );
             },
           )

@@ -16,14 +16,15 @@ class LoginCheck {
     User? user = FirebaseAuth.instance.currentUser;
 
     if (user != null) {
+      CustomNavigator().pushTo(context, UserScreen());
       // User is logged in, navigate to main screen
-      if (user.uid == adminUid) {
-        // Navigate to admin screen
-        CustomNavigator().pushTo(context, AdminScreen());
-      } else {
-        // Navigate to user screen
-       CustomNavigator().pushTo(context, UserScreen());
-      }
+      // if (user.uid == adminUid) {
+      //   // Navigate to admin screen
+      //   CustomNavigator().pushTo(context, AdminScreen());
+      // } else {
+      //   // Navigate to user screen
+      //  CustomNavigator().pushTo(context, UserScreen());
+      // }
      
     } else {
       CustomNavigator().pushTo(context, welcomeScreen());

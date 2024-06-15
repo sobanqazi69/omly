@@ -9,6 +9,8 @@ static String CreateRoom = 'Create Room';
 static String MyRoom = 'My Rooms';
 static String JoinAnyRoom = 'Join Live Room';
 static String Leave = 'Leave';
+static String PeopleMightBeAbleToListen = "People might be able to listen to this Space after it’s over";
+static String TheHostMightSaveThisRecording ="The host might save this recording. Your voice could be in a replay and heard by more people after this Space ends.";
 
 
 

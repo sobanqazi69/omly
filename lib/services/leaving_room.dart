@@ -2,12 +2,16 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:live_13/constants/selected_tags.dart';
 import 'package:live_13/navigations/navigator.dart';
+import 'package:live_13/services/delete_room.dart';
 import 'package:live_13/views/adminScreens/admin_home.dart';
+import 'package:live_13/views/roomScreens/room_screen.dart';
 import 'package:live_13/views/userScreens/user_screen.dart';
 
-Future<void> leaveRoom(String roomName, String userId, BuildContext context, String description) async {
+Future<void> leaveRoom(String roomName, String userId, BuildContext context, String description, String roomiD) async {
   try {
     FirebaseFirestore firestore = FirebaseFirestore.instance;
+                          final roomService = RoomService();
+
     
     QuerySnapshot querySnapshot = await firestore.collection('rooms')
       .where('roomName', isEqualTo: roomName)
@@ -26,13 +30,16 @@ Future<void> leaveRoom(String roomName, String userId, BuildContext context, Str
       await roomRef.collection('joinedUsers').doc(userId).delete();
 
       // Navigate to the appropriate screen based on the user role
-      if (userId == 'w44C44KnLpYgcaaLqah2CFG4QU93') {
-        CustomNavigator().pushTo(context, AdminScreen());
-      } else {
-        CustomNavigator().pushTo(context, UserScreen());
-      }
+      // if (userId == 'w44C44KnLpYgcaaLqah2CFG4QU93') {
+      //   CustomNavigator().pushTo(context, AdminScreen());
+      // } else {
+      //   CustomNavigator().pushTo(context, UserScreen());
+      // }
+      CustomNavigator().pushTo(context, UserScreen());
       
       print("User removed from room successfully!");
+        roomService.checkAndDeleteRoomIfEmpty(roomiD);
+
     } else {
       print("Room not found");
     }
