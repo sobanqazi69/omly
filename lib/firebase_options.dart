@@ -51,7 +51,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyBTWySEPqTKXfVjWGFnNHe9OgXQm2svUhE',
-    appId: '1:124317861334:android:a61c9f305387e9a5be9077',
+    appId: '1:124317861334:android:6f55428fd160046cbe9077',
     messagingSenderId: '124317861334',
     projectId: 'live13-15437',
     storageBucket: 'live13-15437.appspot.com',
@@ -63,6 +63,9 @@ class DefaultFirebaseOptions {
     messagingSenderId: '124317861334',
     projectId: 'live13-15437',
     storageBucket: 'live13-15437.appspot.com',
-    iosBundleId: 'com.live13.live13',
+    androidClientId: '124317861334-3rscslfe1a8cbi7rnfg91g20nk7lvd6a.apps.googleusercontent.com',
+    iosClientId: '124317861334-eefdkscmeudv28vv24icis57v8c4eq6h.apps.googleusercontent.com',
+    iosBundleId: 'com.example.live13',
   );
+
 }
