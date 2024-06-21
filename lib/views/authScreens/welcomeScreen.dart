@@ -31,13 +31,15 @@ class _welcomeScreenState extends State<welcomeScreen> {
           Text(
             textAlign: TextAlign.center,
             AppText.LetsMeetingNewPeopleAroundYou,
-            style: style(family: AppFOnts.gBold, size: CustomScreenUtil.screenWidth * .09),
+            style: style(family: AppFonts.gBold, size: CustomScreenUtil.screenWidth * .09),
           ),
           SizedBox(
             height: space15,
           ),
           CustomButton(
-            onPressed: () {AuthService().signInWithGoogle(context);},
+            onPressed: () {
+              AuthService().signInWithGoogle(context);
+              },
             color: AppColor.red,
             icon: 'assets/Google.png',
             text: AppText.LoginWithPhone,

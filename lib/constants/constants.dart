@@ -1,0 +1,1 @@
+const String kAdminUid = 'KKiiEcVdnzZLKfOFN4Rd5LLWTbn2';

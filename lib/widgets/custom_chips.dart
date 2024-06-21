@@ -62,7 +62,7 @@ class _CustomChipSelectionState extends State<CustomChipSelection> {
           onSelected: (_) => _toggleSelection(tag),
           selectedColor: Colors.red,
           backgroundColor: Color.fromARGB(25, 158, 158, 158),
-          labelStyle: style(family: AppFOnts.gRegular, size: Get.width * .035)
+          labelStyle: style(family: AppFonts.gRegular, size: Get.width * .035)
         );
       }).toList(),
     );

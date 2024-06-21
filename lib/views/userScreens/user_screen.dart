@@ -8,24 +8,17 @@ import 'package:live_13/services/auth_service.dart';
 import 'package:live_13/widgets/rool_list.dart';
 import 'package:live_13/widgets/dialog_alert.dart';
 
-class AdminScreen extends StatefulWidget {
-  const AdminScreen({super.key});
+class UserScreen extends StatefulWidget {
+  const UserScreen({super.key});
 
   @override
-  State<AdminScreen> createState() => _AdminScreenState();
+  State<UserScreen> createState() => _UserScreenState();
 }
 
-class _AdminScreenState extends State<AdminScreen> {
+class _UserScreenState extends State<UserScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: AppColor.red,
-        onPressed: () {
-          showCustomDialog(context: context);
-        },
-        child: Icon(Icons.add),
-      ),
       appBar: AppBar(
         backgroundColor: AppColor.red,
         actions: [
@@ -39,9 +32,7 @@ class _AdminScreenState extends State<AdminScreen> {
       body: Column(
         children: [
           SizedBox(height: space10,),
-            Text(AppText.MyRoom , style: style(family: AppFOnts.gBold , size: 30 , ),),          SizedBox(height: space10,),
-
-
+            Text(AppText.JoinAnyRoom , style: style(family: AppFonts.gBold , size: 30 , ),),          SizedBox(height: space10,),
           Expanded(child: UsersRoomsList()),
         ],
       ),

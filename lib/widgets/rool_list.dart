@@ -69,7 +69,7 @@ class UsersRoomsList extends StatelessWidget {
                                   'Live',
                                   style: style(
                                     clr: AppColor.white,
-                                    family: AppFOnts.gMedium,
+                                    family: AppFonts.gMedium,
                                     size: 16,
                                   ),
                                 ),
@@ -82,7 +82,7 @@ class UsersRoomsList extends StatelessWidget {
                                   style: style(
                                     size: 28,
                                     clr: AppColor.white,
-                                    family: AppFOnts.gBold,
+                                    family: AppFonts.gBold,
                                   ),
                                 ),
                               ),
@@ -94,7 +94,7 @@ class UsersRoomsList extends StatelessWidget {
                                   style: style(
                                     size: 20,
                                     clr: AppColor.white,
-                                    family: AppFOnts.gMedium,
+                                    family: AppFonts.gMedium,
                                   ),
                                 ),
                               ),
@@ -112,7 +112,7 @@ class UsersRoomsList extends StatelessWidget {
                                       label: Text(
                                         '#' + interest,
                                         style: style(
-                                            family: AppFOnts.gMedium, size: 18),
+                                            family: AppFonts.gMedium, size: 18),
                                       ),
                                     );
                                   }).toList(),

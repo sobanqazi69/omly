@@ -24,7 +24,7 @@ class SmallCustomButton extends StatelessWidget {
           child: Text(
             text,
             style: style(
-              family: AppFOnts.gBold,
+              family: AppFonts.gBold,
               size: Get.width* .04,
               clr: AppColor.white
             ),

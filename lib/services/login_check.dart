@@ -5,8 +5,9 @@ import 'package:live_13/navigations/navigator.dart';
 import 'package:live_13/views/authScreens/welcomeScreen.dart';
 import 'package:live_13/views/userScreens/user_screen.dart';
 
+import '../constants/constants.dart';
+
 class LoginCheck {
-  static const String adminUid = 'w44C44KnLpYgcaaLqah2CFG4QU93';
 
    Future<void> checkLoginStatus( BuildContext context) async {
     // Simulate a delay for splash screen (e.g., 2 seconds)
@@ -14,21 +15,15 @@ class LoginCheck {
 
     // Check if the user is logged in
     User? user = FirebaseAuth.instance.currentUser;
-
     if (user != null) {
       CustomNavigator().pushTo(context, UserScreen());
-      // User is logged in, navigate to main screen
-      // if (user.uid == adminUid) {
-      //   // Navigate to admin screen
-      //   CustomNavigator().pushTo(context, AdminScreen());
-      // } else {
-      //   // Navigate to user screen
-      //  CustomNavigator().pushTo(context, UserScreen());
-      // }
-     
+      if (user.uid == kAdminUid) {
+        CustomNavigator().pushTo(context, AdminScreen());
+      } else {
+       CustomNavigator().pushTo(context, UserScreen());
+      }
     } else {
       CustomNavigator().pushTo(context, welcomeScreen());
-      
     }
   }
 }

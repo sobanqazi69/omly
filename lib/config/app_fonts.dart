@@ -1,4 +1,4 @@
-class AppFOnts{
+class AppFonts{
 
   static String gBold = 'GBold';
     static String gMedium= 'GMedium';

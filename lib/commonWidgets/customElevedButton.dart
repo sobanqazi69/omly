@@ -42,7 +42,7 @@ class CustomButton extends StatelessWidget {
             const SizedBox(width: 10),
             Text(
               text,
-              style:style(family: AppFOnts.gBold , size: 18),
+              style:style(family: AppFonts.gBold , size: 18),
             ),
           ],
         ),
