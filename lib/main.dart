@@ -22,7 +22,6 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
      CustomScreenUtil.init(context);
     return GetMaterialApp(
-
       debugShowCheckedModeBanner: false,
       theme: appTheme,
       title: 'Live 13',

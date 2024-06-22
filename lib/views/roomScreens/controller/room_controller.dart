@@ -11,5 +11,4 @@ class RoomController extends GetxController {
     showDot.value = val;
   }
 
-
 }

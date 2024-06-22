@@ -19,7 +19,7 @@ void showCustomDialog({
   final TextEditingController descController = TextEditingController();
   final TextEditingController userController = TextEditingController();
 
-  List<UserNamesModel> userNames = await DatabaseServices().fetchUsernames();
+  List<UserNamesModel> userNames = await DatabaseServices().fetchAdminUserNames();
 
   showDialog(
     context: context,
