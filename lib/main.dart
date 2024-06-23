@@ -4,6 +4,7 @@ import 'package:get/get_navigation/src/root/get_material_app.dart';
 import 'package:live_13/config/app_theme.dart';
 import 'package:live_13/Utils/custom_screen.dart';
 import 'package:live_13/firebase_options.dart';
+import 'package:live_13/views/authScreens/welcomeScreen.dart';
 import 'package:live_13/views/splashScreen/splash_screen.dart';
 
 
@@ -25,7 +26,7 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: appTheme,
       title: 'Live 13',
-      home: SplashScreen()
+      home: welcomeScreen()
     );
   }
 }
