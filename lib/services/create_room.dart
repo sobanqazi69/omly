@@ -35,18 +35,14 @@ Future<void> addRoomData(String roomName, String description, List<String> inter
     await docRef.update({'roomId': roomId});
 
       User? user = FirebaseAuth.instance.currentUser;
+      DocumentReference roomRef = FirebaseFirestore.instance.collection('rooms').doc(roomId);
 
-          DocumentReference roomRef =FirebaseFirestore.instance.collection('rooms').doc(roomId);
-
-          
-
-          if (user != null) {
+      if (user != null) {
         String userName = user.displayName ?? 'Unknown User';
         String userImage =
             user.photoURL ?? 'https://example.com/default_image.jpg';
         String userRole = 'Participant'; // or whatever role you want to assign
 
-        // Create a subcollection named 'joinedUsers' under the room document
         DocumentReference joinedUserRef =
             roomRef.collection('joinedUsers').doc(user.uid);
 

@@ -64,14 +64,20 @@ class AuthService {
             return;
           }
         }
-        if(user.uid == kAdminUid){
-          CustomNavigator().pushReplacement(context, SuperAdminScreen());
+        if (userData.containsKey('username') && userData['username'].toString().isNotEmpty) {
+          if(user.uid == kAdminUid){
+            CustomNavigator().pushReplacement(context, SuperAdminScreen());
+          }
+          else if (userRole == 'Admin') {
+            CustomNavigator().pushTo(context, AdminScreen());
+          } else {
+            CustomNavigator().pushReplacement(context, UserScreen());
+          }
         }
-        else if (userRole == 'Admin') {
-          CustomNavigator().pushTo(context, UserNameScreen(navigationInteger: 0));
-        } else {
+        else {
           CustomNavigator().pushReplacement(context, UserNameScreen(navigationInteger: 1));
         }
+
       }
       else {
         AuthService().signInWithGoogle(context);

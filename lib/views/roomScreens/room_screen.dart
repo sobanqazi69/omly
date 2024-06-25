@@ -57,7 +57,7 @@ class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver  {
 
     super.initState();
     initAgora();
-        _startUpdatingTimestamp();
+    _startUpdatingTimestamp();
 
     _getUserRole();
   }

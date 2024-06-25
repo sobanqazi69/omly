@@ -1,5 +1,4 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 void showSpeakRequestsDialog(BuildContext context, String roomId) {
@@ -39,7 +38,7 @@ void showSpeakRequestsDialog(BuildContext context, String roomId) {
                     leading: CircleAvatar(
                       backgroundImage: NetworkImage(userImage),
                     ),
-                  //  title: Text(userName),
+                   title: Text(userName),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [

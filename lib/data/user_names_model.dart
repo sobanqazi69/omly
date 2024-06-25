@@ -7,7 +7,11 @@ class UserNamesModel {
   UserNamesModel(this.name, this.email,this.userId,this.isBlocked);
 
   factory UserNamesModel.fromJson(Map<String, dynamic> data ){
-    return UserNamesModel(data['name'], data['email'],data['userId'],data.containsKey('isBlocked') && data['isBlocked']);
+    return UserNamesModel(
+      data.containsKey('name')?data['name']:data['username'],
+        data['email'],
+        data['userId'],
+        data.containsKey('isBlocked') && data['isBlocked']);
   }
 
 }
