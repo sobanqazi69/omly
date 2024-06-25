@@ -41,7 +41,6 @@ class RoomScreen extends StatefulWidget {
 
 class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver  {
 
-  int? _remoteUid;
   bool isReceiver = false;
     Timer? _timer;
 
@@ -172,16 +171,11 @@ Future<String> generateToken() async {
         },
         onUserJoined: (RtcConnection connection, int remoteUid, int elapsed) {
           debugPrint("Remote user $remoteUid joined");
-          setState(() {
-            _remoteUid = remoteUid;
-          });
         },
         onUserOffline: (RtcConnection connection, int remoteUid,
             UserOfflineReasonType reason) {
           debugPrint("Remote user $remoteUid left channel");
-          setState(() {
-            _remoteUid = null;
-          });
+
         },
         onTokenPrivilegeWillExpire: (RtcConnection connection, String token) {
           debugPrint(
@@ -599,7 +593,7 @@ Future<String> generateToken() async {
                         itemCount: filteredDocs.length,
                         itemBuilder: (context, index) {
                           var userDoc = filteredDocs[index];
-                          var userName = userDoc['username'];
+                          var userName = userDoc['name'];
                           var userImage = userDoc['image'];
                           var userRole = userDoc['role'];
                           var data = userDoc.data() as Map<String, dynamic>?;
@@ -693,30 +687,30 @@ Future<String> generateToken() async {
                               ),
                             ),
                           ),
-                    // Align(
-                    //   alignment: Alignment.bottomCenter,
-                    //   child: InkWell(
-                    //     onTap: () {
-                    //      // _toggleMic(userRole);
-                    //     },
-                    //     child: Container(
-                    //       padding: EdgeInsets.all(18),
-                    //       decoration: BoxDecoration(
-                    //           border: Border.all(
-                    //             color: isMicOn ? AppColor.red : AppColor.black,
-                    //           ),
-                    //           shape: BoxShape.circle,
-                    //           color: const Color.fromARGB(140, 158, 158, 158)),
-                    //       child: Icon(
-                    //         (userRole == 'Participant')
-                    //             ? Icons.mic_off
-                    //             : Icons.mic,
-                    //         size: 35,
-                    //         color: isMicOn ? AppColor.red : AppColor.black,
-                    //       ),
-                    //     ),
-                    //   ),
-                    // ),
+                    Align(
+                      alignment: Alignment.bottomCenter,
+                      child: InkWell(
+                        onTap: () {
+                         _toggleMic(userRole);
+                        },
+                        child: Container(
+                          padding: EdgeInsets.all(18),
+                          decoration: BoxDecoration(
+                              border: Border.all(
+                                color: isMicOn ? AppColor.red : AppColor.black,
+                              ),
+                              shape: BoxShape.circle,
+                              color: const Color.fromARGB(140, 158, 158, 158)),
+                          child: Icon(
+                            (userRole == 'Participant')
+                                ? Icons.mic_off
+                                : Icons.mic,
+                            size: 35,
+                            color: isMicOn ? AppColor.red : AppColor.black,
+                          ),
+                        ),
+                      ),
+                    ),
                     (userRole == 'Admin')
                         ? InkWell(
                             onTap: () {
