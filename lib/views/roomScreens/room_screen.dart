@@ -6,12 +6,8 @@ import 'package:animated_emoji/emojis.g.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/cupertino.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:live_13/services/delete_room.dart';
-import 'package:live_13/services/deleting_room.dart';
 import 'package:live_13/services/speak_user_request.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:live_13/Config/app_spacing.dart';
@@ -20,7 +16,6 @@ import 'package:live_13/config/app_colors.dart';
 import 'package:live_13/config/app_fonts.dart';
 import 'package:live_13/constants/constant_text.dart';
 import 'package:live_13/services/leaving_room.dart';
-import 'package:pull_down_button/pull_down_button.dart';
 
 const appId =
     "018815000ecb48bebce36fc9ee84830d"; // Replace with your actual Agora App ID
@@ -52,9 +47,8 @@ class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver  {
 
   FirebaseFirestore firestore = FirebaseFirestore.instance;
 
-late RtcEngine _engine = createAgoraRtcEngine();
+  late RtcEngine _engine = createAgoraRtcEngine();
   bool isMicOn = true;
-  bool _localUserJoined = false;
   String userRole = 'Participant'; // Default role
 
   @override
@@ -67,6 +61,8 @@ late RtcEngine _engine = createAgoraRtcEngine();
 
     _getUserRole();
   }
+
+
  Future<void> _updateTimestampIfUserExists() async {
   String userId = FirebaseAuth.instance.currentUser!.uid;
   String roomId = widget.roomId;
@@ -126,7 +122,6 @@ Future<String> generateToken() async {
     await signInAnonymously();
   }
 
-  print('Current user ID: ${FirebaseAuth.instance.currentUser?.uid}');
 
   if (FirebaseAuth.instance.currentUser != null) {
     HttpsCallable callable = FirebaseFunctions.instance.httpsCallable('generateAgoraToken');
@@ -146,16 +141,6 @@ Future<String> generateToken() async {
   }
 }
 
-// Future<String> generateToken() async {
-//     print('object1: ${FirebaseAuth.instance.currentUser?.uid}');
-//     HttpsCallable callable = FirebaseFunctions.instance.httpsCallable('generateAgoraToken');
-//     final response = await callable.call({
-//       'channelName':'123',
-//       'uid': 0,
-//     });
-//     print('object: ${response.data['token']}');
-//     return response.data['token'];
-//   }
 
   Future<void> initAgora() async {
         String token = await generateToken();
@@ -184,9 +169,6 @@ Future<String> generateToken() async {
       RtcEngineEventHandler(
         onJoinChannelSuccess: (RtcConnection connection, int elapsed) {
           debugPrint("Local user ${connection.localUid} joined");
-          setState(() {
-            _localUserJoined = true;
-          });
         },
         onUserJoined: (RtcConnection connection, int remoteUid, int elapsed) {
           debugPrint("Remote user $remoteUid joined");
