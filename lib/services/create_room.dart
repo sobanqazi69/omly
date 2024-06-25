@@ -64,12 +64,12 @@ Future<void> addRoomData(String roomName, String description, List<String> inter
         // updateChannelIdIfNull(roomName, description, channelId);
 
         // Navigate to the RoomScreen
-        CustomNavigator().pushTo(
+        CustomNavigator().pushReplacement(
             context, RoomScreen(roomName: roomName, roomDesc: description ,roomId: roomId,));
         print("User added to room successfully!");
       }
 
-  CustomNavigator().pushTo(
+  CustomNavigator().pushReplacement(
             context, RoomScreen(roomName: roomName, roomDesc: description ,roomId: roomId,));
     print("Room added successfully with ID: $roomId");
   } catch (e) {

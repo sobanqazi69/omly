@@ -19,8 +19,6 @@ import 'package:live_13/services/leaving_room.dart';
 
 const appId =
     "018815000ecb48bebce36fc9ee84830d"; // Replace with your actual Agora App ID
-const token =
-    "007eJxTYJCdxjdHj7eF11o5zzBpT8n/m9varVY0q/6P3d3qYJC6OVGBwcDQwsLQ1MDAIDU5ycQiKTUpOdXYLC3ZMjXVwsTC2CAl/l1uWkMgI4NV+GIGRigE8fkYSlKLS5IzEvPyUnMMjYwZGADrXSFE"; // Replace with your actual Agora Token
 
 const reactions = ['laugh', 'cry', 'thumbs_up'];
 
@@ -92,8 +90,6 @@ class _RoomScreenState extends State<RoomScreen> {
       return;
     }
 
-
-
     // await _engine.setClientRole(ClientRole.Broadcaster);
     await _engine.enableAudio();
     debugPrint('Audio enabled');
@@ -106,7 +102,7 @@ class _RoomScreenState extends State<RoomScreen> {
     String channelId = roomDoc['channelId'];
     print("Channel ID: $channelId");
     int uid = generateUnique15DigitInteger();
-    await _engine.joinChannel(token, channelId, null, 0);
+    await _engine.joinChannel(null, channelId, null, 0);
 
     debugPrint('Joined channel: testchannel123');
 
@@ -415,8 +411,6 @@ class _RoomScreenState extends State<RoomScreen> {
                 ),
                 InkWell(
                   onTap: () {
-
-                    // Example usage: Check and delete the room if it has no participants
                     leaveRoom(
                         widget.roomName,
                         FirebaseAuth.instance.currentUser!.uid,
@@ -473,7 +467,7 @@ class _RoomScreenState extends State<RoomScreen> {
                         itemCount: filteredDocs.length,
                         itemBuilder: (context, index) {
                           var userDoc = filteredDocs[index];
-                          var userName = userDoc['name'];
+                          var userName = userDoc['username'];
                           var userImage = userDoc['image'];
                           var userRole = userDoc['role'];
                           var data = userDoc.data() as Map<String, dynamic>?;

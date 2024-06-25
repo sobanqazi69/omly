@@ -46,7 +46,7 @@ Future<void> joinRoom(String roomName, String userId, BuildContext context,
         // updateChannelIdIfNull(roomName, description, channelId);
 
         // Navigate to the RoomScreen
-        CustomNavigator().pushTo(
+        CustomNavigator().pushReplacement(
             context, RoomScreen(roomName: roomName, roomDesc: description ,roomId: roomId,));
         print("User added to room successfully!");
       } else {

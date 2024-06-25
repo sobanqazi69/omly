@@ -10,9 +10,11 @@ import 'package:live_13/services/databaseService/database_services.dart';
 import 'package:live_13/views/adminScreens/admin_home.dart';
 import 'package:live_13/navigations/navigator.dart';
 import 'package:live_13/views/authScreens/welcomeScreen.dart';
+import 'package:live_13/views/userNameScreen/user_name_screen.dart';
 import 'package:live_13/views/userScreens/user_screen.dart';
 
 import '../constants/constant_text.dart';
+import '../views/superAdmin/super_admin_screen.dart';
 
 
 class AuthService {
@@ -32,18 +34,21 @@ class AuthService {
         idToken: googleAuth?.idToken,
       );
 
-      final userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+      await FirebaseAuth.instance.signInWithCredential(credential);
       User? user = FirebaseAuth.instance.currentUser;
 
       if(user!=null){
-        Map<String,dynamic> userData = {
+        Map<String,dynamic> userDataToSave = {
           'email': user.email,
           'role': 'Participant',
           'name': user.displayName,
           'userId': user.uid
         };
-        await DatabaseServices().saveUserData(userData);
+        await DatabaseServices().saveUserData(userDataToSave);
         DocumentSnapshot userDoc = await DatabaseServices().getUserData(user.uid);
+        Map<String, dynamic> userData = userDoc.data() as Map<String, dynamic>;
+        String userRole = userData.containsKey('role')?userData['role']:'Participant';
+
         if (userDoc.exists && userDoc.data() != null) {
           Map<String, dynamic> userData = userDoc.data() as Map<String,
               dynamic>;
@@ -54,15 +59,18 @@ class AuthService {
               backgroundColor: HexColor('#cccccc'),
             );
             Future.delayed(Duration(seconds: 2), () {
-              SystemNavigator.pop(); // Close the app
+              SystemNavigator.pop();
             });
             return;
           }
         }
-        if (user.uid == kAdminUid) {
-          CustomNavigator().pushTo(context, AdminScreen());
+        if(user.uid == kAdminUid){
+          CustomNavigator().pushReplacement(context, SuperAdminScreen());
+        }
+        else if (userRole == 'Admin') {
+          CustomNavigator().pushTo(context, UserNameScreen(navigationInteger: 0));
         } else {
-          CustomNavigator().pushTo(context, UserScreen());
+          CustomNavigator().pushReplacement(context, UserNameScreen(navigationInteger: 1));
         }
       }
       else {
@@ -81,7 +89,7 @@ class AuthService {
      await googleSignIn.signOut();
      FirebaseAuth.instance.signOut();
      
-      CustomNavigator().pushTo(context, welcomeScreen());
+      CustomNavigator().pushReplacement(context, welcomeScreen());
      
       return true;
     } on Exception catch (_) {

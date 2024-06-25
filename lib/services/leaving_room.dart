@@ -35,7 +35,7 @@ Future<void> leaveRoom(String roomName, String userId, BuildContext context, Str
       // } else {
       //   CustomNavigator().pushTo(context, UserScreen());
       // }
-      CustomNavigator().pushTo(context, UserScreen());
+      CustomNavigator().pushReplacement(context, UserScreen());
       
       print("User removed from room successfully!");
         roomService.checkAndDeleteRoomIfEmpty(roomiD);

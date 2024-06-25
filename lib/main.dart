@@ -26,7 +26,7 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: appTheme,
       title: 'Live 13',
-      home: welcomeScreen()
+      home: SplashScreen()
     );
   }
 }
