@@ -18,8 +18,7 @@ class RoomService {
     
     // If no participants are left, delete the room document
     if (participants.isEmpty) {
-      await roomRef.delete();
-      print('Room deleted because there are no participants left.');
+      await roomRef.delete();       print('Room deleted because there are no participants left.');
     } else {
       print('Room still has participants.');
     }

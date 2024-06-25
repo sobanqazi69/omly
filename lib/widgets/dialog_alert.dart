@@ -42,11 +42,11 @@ void showCustomDialog({
               hintText: AppText.EnterDesc,
             ),
             SizedBox(height: space8),
-            CustomDropdownTextField(
-              controller: userController,
-              hintText: 'Select User',
-              items: userNames,
-            ),
+            // CustomDropdownTextField(
+            //   controller: userController,
+            //   hintText: 'Select User',
+            //   items: userNames,
+            // ),
             SizedBox(height: space4),
             Chips(),
             SmallCustomButton(
