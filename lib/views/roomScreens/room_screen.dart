@@ -617,7 +617,7 @@ Future<String> generateToken() async {
                         itemCount: filteredDocs.length,
                         itemBuilder: (context, index) {
                           var userDoc = filteredDocs[index];
-                          var userName = userDoc['name'];
+                          var userName = userDoc['username'];
                           var userImage = userDoc['image'];
                           var userRole = userDoc['role'];
                           var data = userDoc.data() as Map<String, dynamic>?;
