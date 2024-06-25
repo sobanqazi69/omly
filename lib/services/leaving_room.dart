@@ -7,15 +7,14 @@ import 'package:live_13/views/adminScreens/admin_home.dart';
 import 'package:live_13/views/roomScreens/room_screen.dart';
 import 'package:live_13/views/userScreens/user_screen.dart';
 
-Future<void> leaveRoom(String roomName, String userId, BuildContext context, String description, String roomiD) async {
+Future<void> leaveRoom( String userId, BuildContext context, String roomiD , String userRole) async {
   try {
     FirebaseFirestore firestore = FirebaseFirestore.instance;
                           final roomService = RoomService();
 
     
     QuerySnapshot querySnapshot = await firestore.collection('rooms')
-      .where('roomName', isEqualTo: roomName)
-      .where('description', isEqualTo: description)
+      .where('roomId', isEqualTo: roomiD)
       .get();
 
     if (querySnapshot.docs.isNotEmpty) {
@@ -35,7 +34,11 @@ Future<void> leaveRoom(String roomName, String userId, BuildContext context, Str
       // } else {
       //   CustomNavigator().pushTo(context, UserScreen());
       // }
-      CustomNavigator().pushReplacement(context, UserScreen());
+     if (userRole == 'Admin') {
+            CustomNavigator().pushReplacement(context, AdminScreen());
+          } else {
+            CustomNavigator().pushReplacement(context, UserScreen());
+          }
       
       print("User removed from room successfully!");
         roomService.checkAndDeleteRoomIfEmpty(roomiD);

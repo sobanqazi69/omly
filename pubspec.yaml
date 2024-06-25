@@ -28,11 +28,13 @@ dependencies:
   cloud_firestore: ^5.0.1
   get: ^4.6.6
   lottie: ^3.1.2
-  agora_rtc_engine: ^5.3.1
+  agora_rtc_engine: ^6.3.1
   permission_handler: ^11.3.1
   device_preview: ^1.2.0
   pull_down_button: ^0.9.4
   animated_emoji: ^3.1.0
+  connectivity_plus: ^6.0.3
+  cloud_functions: ^5.0.1
 dev_dependencies:
 
 flutter_launcher_icons:

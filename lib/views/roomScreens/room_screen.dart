@@ -1,12 +1,17 @@
 import 'dart:async';
 import 'dart:math';
-import 'package:agora_rtc_engine/rtc_engine.dart';
+import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:animated_emoji/emoji.dart';
 import 'package:animated_emoji/emojis.g.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:live_13/services/delete_room.dart';
+import 'package:live_13/services/deleting_room.dart';
 import 'package:live_13/services/speak_user_request.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:live_13/Config/app_spacing.dart';
@@ -15,10 +20,11 @@ import 'package:live_13/config/app_colors.dart';
 import 'package:live_13/config/app_fonts.dart';
 import 'package:live_13/constants/constant_text.dart';
 import 'package:live_13/services/leaving_room.dart';
-
+import 'package:pull_down_button/pull_down_button.dart';
 
 const appId =
     "018815000ecb48bebce36fc9ee84830d"; // Replace with your actual Agora App ID
+
 
 const reactions = ['laugh', 'cry', 'thumbs_up'];
 
@@ -29,68 +35,180 @@ class RoomScreen extends StatefulWidget {
 
   RoomScreen(
       {Key? key,
-        required this.roomName,
-        required this.roomDesc,
-        required this.roomId})
+      required this.roomName,
+      required this.roomDesc,
+      required this.roomId})
       : super(key: key);
 
   @override
   State<RoomScreen> createState() => _RoomScreenState();
 }
 
-class _RoomScreenState extends State<RoomScreen> {
+class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver  {
 
   int? _remoteUid;
   bool isReceiver = false;
+    Timer? _timer;
+
   FirebaseFirestore firestore = FirebaseFirestore.instance;
 
-  late RtcEngine _engine;
-  bool isMicOn = false;
-  String userRole = 'Participant';
+late RtcEngine _engine = createAgoraRtcEngine();
+  bool isMicOn = true;
+  bool _localUserJoined = false;
+  String userRole = 'Participant'; // Default role
 
   @override
   void initState() {
+        WidgetsBinding.instance.addObserver(this); // Add observer
+
     super.initState();
     initAgora();
+        _startUpdatingTimestamp();
+
     _getUserRole();
   }
+ Future<void> _updateTimestampIfUserExists() async {
+  String userId = FirebaseAuth.instance.currentUser!.uid;
+  String roomId = widget.roomId;
 
-  Future<void> _getUserRole() async {
-    String userId = FirebaseAuth.instance.currentUser!.uid;
-    DocumentSnapshot userDoc = await firestore
-        .collection('rooms')
-        .doc(widget.roomId)
-        .collection('joinedUsers')
-        .doc(userId)
-        .get();
+  DocumentReference userDocRef = firestore.collection('rooms').doc(roomId).collection('joinedUsers').doc(userId);
 
-    if (userDoc.exists) {
-      if (mounted) {
-        setState(() {
-          userRole = userDoc['role'];
-        });
-      }
-    }
+  DocumentSnapshot userDoc = await userDocRef.get();
+
+  if (userDoc.exists) {
+    await userDocRef.set({
+      'timestamp': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+    print('Timestamp updated for user $userId');
+  } else {
+    print('User document does not exist');
+  }
+}
+
+
+  // Function to start the timer and update the timestamp every minute
+  void _startUpdatingTimestamp() {
+    _updateTimestampIfUserExists(); // Update immediately when the function is called
+    _timer = Timer.periodic(Duration(minutes:1 ), (timer) {
+      _updateTimestampIfUserExists();
+    });
   }
 
+ Future<void> _getUserRole() async {
+  String userId = FirebaseAuth.instance.currentUser!.uid;
+  DocumentSnapshot userDoc = await firestore
+      .collection('rooms')
+      .doc(widget.roomId)
+      .collection('joinedUsers')
+      .doc(userId)
+      .get();
+
+  if (userDoc.exists) {
+    if (mounted) {
+      setState(() {
+        userRole = userDoc['role'];
+      });
+    }
+  }
+}
+
+Future<void> signInAnonymously() async {
+  try {
+    await FirebaseAuth.instance.signInAnonymously();
+    print('Signed in anonymously: ${FirebaseAuth.instance.currentUser?.uid}');
+  } catch (e) {
+    print('Error signing in anonymously: $e');
+  }
+}
+
+Future<String> generateToken() async {
+  if (FirebaseAuth.instance.currentUser == null) {
+    await signInAnonymously();
+  }
+
+  print('Current user ID: ${FirebaseAuth.instance.currentUser?.uid}');
+
+  if (FirebaseAuth.instance.currentUser != null) {
+    HttpsCallable callable = FirebaseFunctions.instance.httpsCallable('generateAgoraToken');
+    try {
+      final response = await callable.call({
+        'channelName': '123',
+        'uid': 0,
+      });
+      print('Token: ${response.data['token']}');
+      return response.data['token'];
+    } catch (e) {
+      print('Error calling function: $e');
+      rethrow;
+    }
+  } else {
+    throw Exception('User is not authenticated');
+  }
+}
+
+// Future<String> generateToken() async {
+//     print('object1: ${FirebaseAuth.instance.currentUser?.uid}');
+//     HttpsCallable callable = FirebaseFunctions.instance.httpsCallable('generateAgoraToken');
+//     final response = await callable.call({
+//       'channelName':'123',
+//       'uid': 0,
+//     });
+//     print('object: ${response.data['token']}');
+//     return response.data['token'];
+//   }
 
   Future<void> initAgora() async {
+        String token = await generateToken();
+
     var status = await [Permission.microphone].request();
     if (status[Permission.microphone] != PermissionStatus.granted) {
       print('Microphone permission not granted');
       return;
     }
 
-    try {
-      _engine = await RtcEngine.create(appId);
-      await _engine.enableVideo();
-      print('Agora engine initialized');
-    } catch (e) {
-      print('Error initializing Agora engine: $e');
-      return;
-    }
+   try {
+  _engine = createAgoraRtcEngine();
+  await _engine.initialize(const RtcEngineContext(
+    appId: appId,
+    channelProfile: ChannelProfileType.channelProfileLiveBroadcasting,
+  ));
+  print('Agora engine initialized');
+} catch (e) {
+  print('Error initializing Agora engine: $e');
+  return;
+}
 
-    // await _engine.setClientRole(ClientRole.Broadcaster);
+   
+
+    _engine.registerEventHandler(
+      RtcEngineEventHandler(
+        onJoinChannelSuccess: (RtcConnection connection, int elapsed) {
+          debugPrint("Local user ${connection.localUid} joined");
+          setState(() {
+            _localUserJoined = true;
+          });
+        },
+        onUserJoined: (RtcConnection connection, int remoteUid, int elapsed) {
+          debugPrint("Remote user $remoteUid joined");
+          setState(() {
+            _remoteUid = remoteUid;
+          });
+        },
+        onUserOffline: (RtcConnection connection, int remoteUid,
+            UserOfflineReasonType reason) {
+          debugPrint("Remote user $remoteUid left channel");
+          setState(() {
+            _remoteUid = null;
+          });
+        },
+        onTokenPrivilegeWillExpire: (RtcConnection connection, String token) {
+          debugPrint(
+              '[onTokenPrivilegeWillExpire] connection: ${connection.toJson()}, token: $token');
+        },
+      ),
+    );
+
+    await _engine.setClientRole(role: ClientRoleType.clientRoleBroadcaster);
     await _engine.enableAudio();
     debugPrint('Audio enabled');
 
@@ -102,9 +220,14 @@ class _RoomScreenState extends State<RoomScreen> {
     String channelId = roomDoc['channelId'];
     print("Channel ID: $channelId");
     int uid = generateUnique15DigitInteger();
-    await _engine.joinChannel(null, channelId, null, 0);
 
-    debugPrint('Joined channel: testchannel123');
+    await _engine.joinChannel(
+      token: token,
+      channelId: channelId,
+      uid: uid,
+      options: const ChannelMediaOptions(),
+    );
+    debugPrint('Joined channel: $channelId');
 
   }
 
@@ -134,21 +257,22 @@ class _RoomScreenState extends State<RoomScreen> {
   }
 
   void _toggleMic(String? role) {
-    if (role != 'Admin' || role == 'Moderator') {
-      setState(() {
-        isMicOn = !isMicOn;
-      });
-      print("Toggling mic. New state: ${isMicOn ? 'ON' : 'OFF'}");
-      _engine.muteLocalAudioStream(!isMicOn).then((value) {
-        print("muteLocalAudioStream called with: ${!isMicOn}");
-      }).catchError((error) {
-        print("Error in muteLocalAudioStream: $error");
-      });
-    } else {
-      _showBottomSheet();
-      print("Access Denied. Microphone state: ${isMicOn ? 'ON' : 'OFF'}");
-    }
+  if (role == 'Admin' || role == 'Moderator') {
+    setState(() {
+      isMicOn = !isMicOn;
+    });
+    print("Toggling mic. New state: ${isMicOn ? 'ON' : 'OFF'}");
+    _engine.muteLocalAudioStream(!isMicOn).then((value) {
+      print("muteLocalAudioStream called with: ${!isMicOn}");
+    }).catchError((error) {
+      print("Error in muteLocalAudioStream: $error");
+    });
+  } else {
+   /// _engine.muteLocalAudioStream(true);
+    _showBottomSheet();
+    print("Access Denied. Microphone state: ${isMicOn ? 'ON' : 'OFF'}");
   }
+}
 
 
   void _showBottomSheet() {
@@ -208,6 +332,18 @@ class _RoomScreenState extends State<RoomScreen> {
     );
   }
 
+ @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.detached) {
+      _handleAppClosed();
+    }
+  }
+
+  void _handleAppClosed() {
+    String userId = FirebaseAuth.instance.currentUser!.uid;
+   leaveRoom(userId, context, widget.roomId , userRole);
+  }
   Future<void> _requestToSpeak() async {
     String userId = FirebaseAuth.instance.currentUser!.uid;
     User? user = FirebaseAuth.instance.currentUser;
@@ -234,7 +370,12 @@ class _RoomScreenState extends State<RoomScreen> {
   @override
   void dispose() {
     _engine.leaveChannel();
-    leaveRoom(widget.roomName, widget.roomId, context, widget.roomDesc  ,widget.roomId);
+    WidgetsBinding.instance.removeObserver(this); // Remove observer
+
+    leaveRoom( widget.roomId, context ,widget.roomId,userRole);
+    _engine.release();
+        _timer?.cancel();
+
     super.dispose();
   }
 
@@ -349,20 +490,20 @@ class _RoomScreenState extends State<RoomScreen> {
           animate: true,
           repeat: true,
         );
-    // return Icon(
-    //   Icons.emoji_emotions,
-    //   color: Colors.yellow,
-    //   size: 30,
-    // );
+      // return Icon(
+      //   Icons.emoji_emotions,
+      //   color: Colors.yellow,
+      //   size: 30,
+      // );
       case 'cry':
-        return AnimatedEmoji(
+       return AnimatedEmoji(
           AnimatedEmojis.cry,
           size: 65,
           animate: true,
           repeat: true,
         );
       case 'thumbs_up':
-        return AnimatedEmoji(
+         return AnimatedEmoji(
           AnimatedEmojis.thumbsUp,
           size: 65,
           animate: true,
@@ -409,21 +550,30 @@ class _RoomScreenState extends State<RoomScreen> {
                     ),
                   ],
                 ),
-                InkWell(
-                  onTap: () {
-                    leaveRoom(
-                        widget.roomName,
-                        FirebaseAuth.instance.currentUser!.uid,
-                        context,
-                        widget.roomDesc,
-                        widget.roomId
-                    );
-                  },
-                  child: Text(
-                    AppText.Leave,
-                    style: style(
-                        family: AppFonts.gBold, clr: AppColor.red, size: 20),
-                  ),
+                Row(
+                  children: [
+                    //  (userRole == 'Admin')? IconButton(
+                    //     onPressed: () async {
+                    //      deleteRoomAndRedirect(context, widget.roomId , userId , userRole);
+                    //     },
+                    //     icon: Icon(Icons.delete)) : SizedBox(),
+                    InkWell(
+                      onTap: () {
+                    
+                      // Example usage: Check and delete the room if it has no participants
+                        leaveRoom(
+                          FirebaseAuth.instance.currentUser!.uid,
+                          context,
+                          widget.roomId,userRole
+                        );
+                      },
+                      child: Text(
+                        AppText.Leave,
+                        style: style(
+                            family: AppFonts.gBold, clr: AppColor.red, size: 20),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -467,20 +617,20 @@ class _RoomScreenState extends State<RoomScreen> {
                         itemCount: filteredDocs.length,
                         itemBuilder: (context, index) {
                           var userDoc = filteredDocs[index];
-                          var userName = userDoc['username'];
+                          var userName = userDoc['name'];
                           var userImage = userDoc['image'];
                           var userRole = userDoc['role'];
                           var data = userDoc.data() as Map<String, dynamic>?;
                           var latestReaction =
-                          data != null && data.containsKey('latestReaction')
-                              ? data['latestReaction']
-                              : null;
+                              data != null && data.containsKey('latestReaction')
+                                  ? data['latestReaction']
+                                  : null;
 
                           return Column(
                             children: [
                               InkWell(
                                 onLongPress: () {
-
+                               
                                   showOptionsBottomSheet(
                                       context, userDoc.id, userRole);
                                 },
@@ -490,8 +640,8 @@ class _RoomScreenState extends State<RoomScreen> {
                                       child: CircleAvatar(
                                         radius: 30,
                                         backgroundImage:
-                                        NetworkImage(userImage),
-                                        child: (latestReaction != null) ?  _getReactionIcon(latestReaction) :SizedBox(),
+                                            NetworkImage(userImage),
+                                            child: (latestReaction != null) ?  _getReactionIcon(latestReaction) :SizedBox(),
                                       ),
                                     ),
                                     // if (latestReaction != null)
@@ -543,73 +693,74 @@ class _RoomScreenState extends State<RoomScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     InkWell(
-                      onTap: () {
-                        _showReactionsBottomSheet();
-                      },
-                      child: Container(
-                        padding: EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                            border: Border.all(
-                              color: AppColor.black,
-                            ),
-                            shape: BoxShape.circle,
-                            color:
-                            const Color.fromARGB(140, 158, 158, 158)),
-                        child: Icon(
-                          Icons.emoji_emotions,
-                          size: 25,
-                        ),
-                      ),
-                    ),
-                    Align(
-                      alignment: Alignment.bottomCenter,
-                      child: InkWell(
-                        onTap: () {
-                          _toggleMic(userRole);
-                        },
-                        child: Container(
-                          padding: EdgeInsets.all(18),
-                          decoration: BoxDecoration(
-                              border: Border.all(
-                                color: isMicOn ? AppColor.red : AppColor.black,
+                            onTap: () {
+                             _showReactionsBottomSheet();
+                            },
+                            child: Container(
+                              padding: EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                  border: Border.all(
+                                    color: AppColor.black,
+                                  ),
+                                  shape: BoxShape.circle,
+                                  color:
+                                      const Color.fromARGB(140, 158, 158, 158)),
+                              child: Icon(
+                                Icons.emoji_emotions,
+                                size: 25,
                               ),
-                              shape: BoxShape.circle,
-                              color: const Color.fromARGB(140, 158, 158, 158)),
-                          child: Icon(
-                            (userRole == 'Participant')
-                                ? Icons.mic_off
-                                : Icons.mic,
-                            size: 35,
-                            color: isMicOn ? AppColor.red : AppColor.black,
+                            ),
                           ),
-                        ),
-                      ),
-                    ),
+                    // Align(
+                    //   alignment: Alignment.bottomCenter,
+                    //   child: InkWell(
+                    //     onTap: () {
+                    //      // _toggleMic(userRole);
+                    //     },
+                    //     child: Container(
+                    //       padding: EdgeInsets.all(18),
+                    //       decoration: BoxDecoration(
+                    //           border: Border.all(
+                    //             color: isMicOn ? AppColor.red : AppColor.black,
+                    //           ),
+                    //           shape: BoxShape.circle,
+                    //           color: const Color.fromARGB(140, 158, 158, 158)),
+                    //       child: Icon(
+                    //         (userRole == 'Participant')
+                    //             ? Icons.mic_off
+                    //             : Icons.mic,
+                    //         size: 35,
+                    //         color: isMicOn ? AppColor.red : AppColor.black,
+                    //       ),
+                    //     ),
+                    //   ),
+                    // ),
                     (userRole == 'Admin')
                         ? InkWell(
-                      onTap: () {
-                        showSpeakRequestsDialog(context, widget.roomId);
-                      },
-                      child: Container(
-                        padding: EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                            border: Border.all(
-                              color: AppColor.black,
+                            onTap: () {
+                              showSpeakRequestsDialog(context, widget.roomId);
+                            },
+                            child: Container(
+                              padding: EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                  border: Border.all(
+                                    color: AppColor.black,
+                                  ),
+                                  shape: BoxShape.circle,
+                                  color:
+                                      const Color.fromARGB(140, 158, 158, 158)),
+                              child: Icon(
+                                Icons.add_alert,
+                                size: 25,
+                              ),
                             ),
-                            shape: BoxShape.circle,
-                            color:
-                            const Color.fromARGB(140, 158, 158, 158)),
-                        child: Icon(
-                          Icons.add_alert,
-                          size: 25,
-                        ),
-                      ),
-                    )
+                          )
                         : SizedBox()
                   ],
                 );
               },
             ),
+           
           ],
         ),
       ),
