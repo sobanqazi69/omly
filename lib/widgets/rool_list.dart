@@ -35,6 +35,7 @@ class UsersRoomsList extends StatelessWidget {
                     ?.toDate(); // Assuming createdAt is a Timestamp
                 final interests = room['interests'];
                 final participants = room['participants'];
+                 final channelId = room['channelId'];
                 final participantsCount = participants.length;
 
                 return InkWell(
@@ -42,7 +43,7 @@ class UsersRoomsList extends StatelessWidget {
                     User? user = FirebaseAuth.instance.currentUser;
                     if (user != null) {
                       await joinRoom(
-                          roomName, user.uid, context, description, roomId);
+                          roomName, user.uid, context, description, roomId , channelId);
                     }
                   },
                   child: Padding(

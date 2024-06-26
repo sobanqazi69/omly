@@ -15,6 +15,7 @@ Stream<List<Map<String, dynamic>>> fetchRooms() {
         'createdAt': doc['createdAt'],
         'interests': List<String>.from(doc['interests']),
         'participants': List<String>.from(doc['participants']),
+        'channelId': doc['channelId'],
       };
     }).toList();
   });

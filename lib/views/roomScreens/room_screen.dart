@@ -28,12 +28,13 @@ class RoomScreen extends StatefulWidget {
   final String roomName;
   final String roomDesc;
   final String roomId;
+  final String channelId;
 
   RoomScreen(
       {Key? key,
       required this.roomName,
       required this.roomDesc,
-      required this.roomId})
+      required this.roomId, required this.channelId})
       : super(key: key);
 
   @override
@@ -41,6 +42,7 @@ class RoomScreen extends StatefulWidget {
 }
 
 class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver {
+  
   Map<int, bool> mutedUsers = {};
 
   UserModel? user = userData.currentUser;
@@ -58,11 +60,35 @@ class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver {
   void initState() {
     WidgetsBinding.instance.addObserver(this); // Add observer
     super.initState();
+        _getUserRole(); 
+
     initAgora();
     _startUpdatingTimestamp();
  uId = generateUnique15DigitInteger();
+ storeUid ();
 
-    _getUserRole();
+ 
+
+  }
+
+  Future<void> storeUid () async {
+     String userId = FirebaseAuth.instance.currentUser!.uid;
+    String roomId = widget.roomId;
+
+    DocumentReference userDocRef = firestore
+        .collection('rooms')
+        .doc(roomId)
+        .collection('joinedUsers')
+        .doc(userId);
+
+    DocumentSnapshot userDoc = await userDocRef.get();
+
+    if (userDoc.exists) {
+      await userDocRef.set({
+        'uId': uId,
+      }, SetOptions(merge: true));
+      print('uid stored of  $userId');
+    }
   }
 
   Future<void> _updateTimestampIfUserExists() async {
@@ -110,8 +136,12 @@ class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver {
           userRole = userDoc['role'];
         });
       }
+
+
     }
+   
   }
+
 
   Future<void> signInAnonymously() async {
     try {
@@ -128,11 +158,14 @@ class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver {
     }
 
     if (FirebaseAuth.instance.currentUser != null) {
+    //   DocumentSnapshot? roomDoc = await _getRoomDocument();
+   
+    // String channelId = roomDoc!['channelId'];
       HttpsCallable callable =
           FirebaseFunctions.instance.httpsCallable('generateAgoraToken');
       try {
         final response = await callable.call({
-          'channelName': '123',
+          'channelName': widget.channelId,
           'uid': 0,
         });
         print('Token: ${response.data['token']}');
@@ -190,22 +223,25 @@ class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver {
     await _engine.enableAudio();
     debugPrint('Audio enabled');
 
-    DocumentSnapshot? roomDoc = await _getRoomDocument();
+    DocumentSnapshot? roomDoc = await _getRoomDocumentt();
     if (roomDoc == null) {
       print("Room document not found");
       return;
     }
-    String channelId = roomDoc['channelId'];
-    print("Channel ID: $channelId");
+    // String channelId = roomDoc['channelId'];
+    // print("Channel ID: $channelId");
     
 
     await _engine.joinChannel(
       token: token,
-      channelId: channelId,
+      channelId: widget.channelId,
       uid: uId,
       options: const ChannelMediaOptions(),
     );
-    debugPrint('Joined channel: $channelId');
+    debugPrint('Joined channel: ${widget.channelId}');
+          (userRole=='Participant')?     _engine.enableLocalAudio(false) :     _engine.enableLocalAudio(true);
+
+
   }
 
   int generateUnique15DigitInteger() {
@@ -221,7 +257,7 @@ class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver {
     return int.parse(uniqueIdString);
   }
 
-  Future<DocumentSnapshot?> _getRoomDocument() async {
+  Future<DocumentSnapshot?> _getRoomDocumentt() async {
     QuerySnapshot querySnapshot = await FirebaseFirestore.instance
         .collection('rooms')
         .where('roomId', isEqualTo: widget.roomId)
@@ -310,23 +346,24 @@ void _toggleMic(String userRole) {
             isMicOn = newMicStatus;
           });
           print("Mic status updated for $userId: ${newMicStatus ? 'unmuted' : 'muted'}");
+          _engine.enableLocalAudio(newMicStatus);
 
-          if(userRole == 'Admin') {
-            // Admins control their own local mic
-            _engine.muteLocalAudioStream(!newMicStatus).then((value) {
-              print("Admin local audio stream is now ${newMicStatus ? 'unmuted' : 'muted'}");
-            }).catchError((muteError) {
-              print("Error in muting/unmuting local audio for Admin: $muteError");
-            });
-          } else {
-            // Other roles toggle their own mic status, affecting only local perception
-            print("Attempting to mute/unmute remote audio for $userId");
-            _engine.muteRemoteAudioStream(uid: uId, mute :!newMicStatus).then((_) {
-              print("Remote user $userId audio is now ${newMicStatus ? 'unmuted' : 'muted'}");
-            }).catchError((error) {
-              print("Error muting/unmuting remote user $userId: $error");
-            });
-          }
+          // if(userRole == 'Admin') {
+          //   // Admins control their own local mic
+          //   _engine.muteLocalAudioStream(!newMicStatus).then((value) {
+          //     print("Admin local audio stream is now ${newMicStatus ? 'unmuted' : 'muted'}");
+          //   }).catchError((muteError) {
+          //     print("Error in muting/unmuting local audio for Admin: $muteError");
+          //   });
+          // } else {
+          //   // Other roles toggle their own mic status, affecting only local perception
+          //   print("Attempting to mute/unmute remote audio for $userId");
+          //   _engine.muteRemoteAudioStream(uid: uId, mute :!newMicStatus).then((_) {
+          //     print("Remote user $userId audio is now ${newMicStatus ? 'unmuted' : 'muted'}");
+          //   }).catchError((error) {
+          //     print("Error muting/unmuting remote user $userId: $error");
+          //   });
+          // }
         }).catchError((error) {
           print("Error updating Firestore mic status for $userId: $error");
         });
@@ -645,7 +682,7 @@ void _toggleMic(String userRole) {
             SizedBox(height: space20),
             Expanded(
               child: FutureBuilder<DocumentSnapshot?>(
-                future: _getRoomDocument(),
+                future: _getRoomDocumentt(),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return Center(child: CircularProgressIndicator());
@@ -682,7 +719,7 @@ void _toggleMic(String userRole) {
                         itemCount: filteredDocs.length,
                         itemBuilder: (context, index) {
                           var userDoc = filteredDocs[index];
-                          var userName = userDoc['name'];
+                          var userName = userDoc['username'];
                           var userImage = userDoc['image'];
                           var userRole = userDoc['role'];
                           var data = userDoc.data() as Map<String, dynamic>?;
@@ -719,7 +756,7 @@ void _toggleMic(String userRole) {
                               ),
                               SizedBox(height: space2),
                               Text(
-                                user!.username  ?? user!.name,
+                               userName,
                                 style: style(
                                     family: AppFonts.gBold,
                                     size: Get.width * .030),
@@ -794,6 +831,7 @@ void _toggleMic(String userRole) {
           alignment: Alignment.bottomCenter,
           child: InkWell(
             onTap: () {
+              (userRole=='Participant')?_showBottomSheet():
               _toggleMic(userRole);
             },
             child: Container(
@@ -805,7 +843,7 @@ void _toggleMic(String userRole) {
                   shape: BoxShape.circle,
                   color: const Color.fromARGB(140, 158, 158, 158)),
               child: Icon(
-                Icons.mic,
+             (userRole=='Participant')? Icons.mic_off :  Icons.mic,
                 size: 35,
                 color: isMicOn ? AppColor.red : AppColor.black,
               ),

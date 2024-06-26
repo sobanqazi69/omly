@@ -2,12 +2,14 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:live_13/models/user_model.dart';
 import 'package:live_13/navigations/navigator.dart';
 import 'package:live_13/views/roomScreens/room_screen.dart';
 
 Future<void> joinRoom(String roomName, String userId, BuildContext context,
-    String description , String roomId) async {
+    String description , String roomId,String channelId) async {
   try {
+    UserModel? userr = userData.currentUser;
     FirebaseFirestore firestore = FirebaseFirestore.instance;
 
     // Query to find the room with the specified roomName and description
@@ -39,7 +41,7 @@ Future<void> joinRoom(String roomName, String userId, BuildContext context,
 
         // Add a document with the user's details
        await joinedUserRef
-                .set({'name': userName, 'image': userImage, 'role': userRole});
+                .set({'name': userName, 'image': userImage, 'role': userRole , 'username' : userr!.username});
 
         // String channelId = generateChannelId();
 
@@ -47,7 +49,7 @@ Future<void> joinRoom(String roomName, String userId, BuildContext context,
 
         // Navigate to the RoomScreen
         CustomNavigator().pushReplacement(
-            context, RoomScreen(roomName: roomName, roomDesc: description ,roomId: roomId,));
+            context, RoomScreen(roomName: roomName, roomDesc: description ,roomId: roomId, channelId: channelId,));
         print("User added to room successfully!");
       } else {
         print("No user is currently signed in.");
