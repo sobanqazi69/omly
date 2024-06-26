@@ -8,6 +8,8 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:live_13/constants/selected_tags.dart';
+import 'package:live_13/models/user_model.dart';
 import 'package:live_13/services/speak_user_request.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:live_13/Config/app_spacing.dart';
@@ -19,7 +21,6 @@ import 'package:live_13/services/leaving_room.dart';
 
 const appId =
     "018815000ecb48bebce36fc9ee84830d"; // Replace with your actual Agora App ID
-
 
 const reactions = ['laugh', 'cry', 'thumbs_up'];
 
@@ -39,110 +40,114 @@ class RoomScreen extends StatefulWidget {
   State<RoomScreen> createState() => _RoomScreenState();
 }
 
-class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver  {
+class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver {
+  Map<int, bool> mutedUsers = {};
 
+  UserModel? user = userData.currentUser;
   bool isReceiver = false;
-    Timer? _timer;
+  Timer? _timer;
 
   FirebaseFirestore firestore = FirebaseFirestore.instance;
 
   late RtcEngine _engine = createAgoraRtcEngine();
-  bool isMicOn = true;
+  bool isMicOn = false;
   String userRole = 'Participant'; // Default role
+  int uId = 0;
 
   @override
   void initState() {
-        WidgetsBinding.instance.addObserver(this); // Add observer
-
+    WidgetsBinding.instance.addObserver(this); // Add observer
     super.initState();
     initAgora();
     _startUpdatingTimestamp();
+ uId = generateUnique15DigitInteger();
 
     _getUserRole();
   }
 
+  Future<void> _updateTimestampIfUserExists() async {
+    String userId = FirebaseAuth.instance.currentUser!.uid;
+    String roomId = widget.roomId;
 
- Future<void> _updateTimestampIfUserExists() async {
-  String userId = FirebaseAuth.instance.currentUser!.uid;
-  String roomId = widget.roomId;
+    DocumentReference userDocRef = firestore
+        .collection('rooms')
+        .doc(roomId)
+        .collection('joinedUsers')
+        .doc(userId);
 
-  DocumentReference userDocRef = firestore.collection('rooms').doc(roomId).collection('joinedUsers').doc(userId);
+    DocumentSnapshot userDoc = await userDocRef.get();
 
-  DocumentSnapshot userDoc = await userDocRef.get();
-
-  if (userDoc.exists) {
-    await userDocRef.set({
-      'timestamp': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
-    print('Timestamp updated for user $userId');
-  } else {
-    print('User document does not exist');
+    if (userDoc.exists) {
+      await userDocRef.set({
+        'timestamp': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      print('Timestamp updated for user $userId');
+    } else {
+      print('User document does not exist');
+    }
   }
-}
-
 
   // Function to start the timer and update the timestamp every minute
   void _startUpdatingTimestamp() {
     _updateTimestampIfUserExists(); // Update immediately when the function is called
-    _timer = Timer.periodic(Duration(minutes:1 ), (timer) {
+    _timer = Timer.periodic(Duration(minutes: 1), (timer) {
       _updateTimestampIfUserExists();
     });
   }
 
- Future<void> _getUserRole() async {
-  String userId = FirebaseAuth.instance.currentUser!.uid;
-  DocumentSnapshot userDoc = await firestore
-      .collection('rooms')
-      .doc(widget.roomId)
-      .collection('joinedUsers')
-      .doc(userId)
-      .get();
+  Future<void> _getUserRole() async {
+    String userId = FirebaseAuth.instance.currentUser!.uid;
+    DocumentSnapshot userDoc = await firestore
+        .collection('rooms')
+        .doc(widget.roomId)
+        .collection('joinedUsers')
+        .doc(userId)
+        .get();
 
-  if (userDoc.exists) {
-    if (mounted) {
-      setState(() {
-        userRole = userDoc['role'];
-      });
+    if (userDoc.exists) {
+      if (mounted) {
+        setState(() {
+          userRole = userDoc['role'];
+        });
+      }
     }
   }
-}
 
-Future<void> signInAnonymously() async {
-  try {
-    await FirebaseAuth.instance.signInAnonymously();
-    print('Signed in anonymously: ${FirebaseAuth.instance.currentUser?.uid}');
-  } catch (e) {
-    print('Error signing in anonymously: $e');
-  }
-}
-
-Future<String> generateToken() async {
-  if (FirebaseAuth.instance.currentUser == null) {
-    await signInAnonymously();
-  }
-
-
-  if (FirebaseAuth.instance.currentUser != null) {
-    HttpsCallable callable = FirebaseFunctions.instance.httpsCallable('generateAgoraToken');
+  Future<void> signInAnonymously() async {
     try {
-      final response = await callable.call({
-        'channelName': '123',
-        'uid': 0,
-      });
-      print('Token: ${response.data['token']}');
-      return response.data['token'];
+      await FirebaseAuth.instance.signInAnonymously();
+      print('Signed in anonymously: ${FirebaseAuth.instance.currentUser?.uid}');
     } catch (e) {
-      print('Error calling function: $e');
-      rethrow;
+      print('Error signing in anonymously: $e');
     }
-  } else {
-    throw Exception('User is not authenticated');
   }
-}
 
+  Future<String> generateToken() async {
+    if (FirebaseAuth.instance.currentUser == null) {
+      await signInAnonymously();
+    }
+
+    if (FirebaseAuth.instance.currentUser != null) {
+      HttpsCallable callable =
+          FirebaseFunctions.instance.httpsCallable('generateAgoraToken');
+      try {
+        final response = await callable.call({
+          'channelName': '123',
+          'uid': 0,
+        });
+        print('Token: ${response.data['token']}');
+        return response.data['token'];
+      } catch (e) {
+        print('Error calling function: $e');
+        rethrow;
+      }
+    } else {
+      throw Exception('User is not authenticated');
+    }
+  }
 
   Future<void> initAgora() async {
-        String token = await generateToken();
+    String token = await generateToken();
 
     var status = await [Permission.microphone].request();
     if (status[Permission.microphone] != PermissionStatus.granted) {
@@ -150,19 +155,17 @@ Future<String> generateToken() async {
       return;
     }
 
-   try {
-  _engine = createAgoraRtcEngine();
-  await _engine.initialize(const RtcEngineContext(
-    appId: appId,
-    channelProfile: ChannelProfileType.channelProfileLiveBroadcasting,
-  ));
-  print('Agora engine initialized');
-} catch (e) {
-  print('Error initializing Agora engine: $e');
-  return;
-}
-
-   
+    try {
+      _engine = createAgoraRtcEngine();
+      await _engine.initialize(const RtcEngineContext(
+        appId: appId,
+        channelProfile: ChannelProfileType.channelProfileLiveBroadcasting,
+      ));
+      print('Agora engine initialized');
+    } catch (e) {
+      print('Error initializing Agora engine: $e');
+      return;
+    }
 
     _engine.registerEventHandler(
       RtcEngineEventHandler(
@@ -175,7 +178,6 @@ Future<String> generateToken() async {
         onUserOffline: (RtcConnection connection, int remoteUid,
             UserOfflineReasonType reason) {
           debugPrint("Remote user $remoteUid left channel");
-
         },
         onTokenPrivilegeWillExpire: (RtcConnection connection, String token) {
           debugPrint(
@@ -195,16 +197,15 @@ Future<String> generateToken() async {
     }
     String channelId = roomDoc['channelId'];
     print("Channel ID: $channelId");
-    int uid = generateUnique15DigitInteger();
+    
 
     await _engine.joinChannel(
       token: token,
       channelId: channelId,
-      uid: uid,
+      uid: uId,
       options: const ChannelMediaOptions(),
     );
     debugPrint('Joined channel: $channelId');
-
   }
 
   int generateUnique15DigitInteger() {
@@ -231,24 +232,113 @@ Future<String> generateToken() async {
     }
     return null;
   }
+  
+// void _toggleMic(String userRole) {
+//  final String userId = FirebaseAuth.instance.currentUser!.uid;
+//   final DocumentReference userDocRef = firestore
+//       .collection('rooms')
+//       .doc(widget.roomId)
+//       .collection('joinedUsers')
+//       .doc(userId);
 
-  void _toggleMic(String? role) {
-  if (role == 'Admin' || role == 'Moderator') {
-    setState(() {
-      isMicOn = !isMicOn;
-    });
-    print("Toggling mic. New state: ${isMicOn ? 'ON' : 'OFF'}");
-    _engine.muteLocalAudioStream(!isMicOn).then((value) {
-      print("muteLocalAudioStream called with: ${!isMicOn}");
-    }).catchError((error) {
-      print("Error in muteLocalAudioStream: $error");
-    });
-  } else {
-   /// _engine.muteLocalAudioStream(true);
-    _showBottomSheet();
-    print("Access Denied. Microphone state: ${isMicOn ? 'ON' : 'OFF'}");
-  }
+//   userDocRef.get().then((DocumentSnapshot docSnapshot) {
+//     if (docSnapshot.exists) {
+//       Map<String, dynamic>? data = docSnapshot.data() as Map<String, dynamic>?;
+//       if (data != null) {
+//         bool currentMicStatus = data['isMicOn'] as bool? ?? false;
+//         bool newMicStatus = !currentMicStatus;
+
+//         // Update Firestore and Agora mute state
+//         userDocRef.update({'isMicOn': newMicStatus}).then((_) {
+//           setState(() {
+//             isMicOn = newMicStatus;
+//           });
+//           print("Mic status updated: $newMicStatus");
+//           // Mute or unmute the local audio
+//           if(userRole=='Admin')
+//           {
+//           _engine.muteLocalAudioStream(!newMicStatus).then((value) {
+//             print("Local audio stream is now ${newMicStatus ? 'unmuted' : 'muted'}");
+//           }).catchError((muteError) {
+//             print("Error in muting/unmuting local audio stream: $muteError");
+//           }); 
+//           }
+//           else
+//           {
+//             setState(() {
+//     // Toggle the muted state for the given user ID
+//     mutedUsers[uId] = !(mutedUsers[userId] ?? false);
+//   });
+
+//   // Call Agora's SDK to mute/unmute the remote audio stream
+//   try{
+// _engine.muteRemoteAudioStream(uid: uId,mute: mutedUsers[userId]!);
+// print('remote user is muted')
+// ;  }
+// catch(e){
+//   print('error muting rmote iser');
+// }
+  
+//           }
+//         }).catchError((error) {
+//           print("Error updating mic status: $error");
+//         }); 
+//       }
+//     } 
+//   }).catchError((error) {
+//     print("Error fetching user document: $error");
+//   });
+// }
+void _toggleMic(String userRole) {
+  final String userId = FirebaseAuth.instance.currentUser!.uid;
+  final DocumentReference userDocRef = firestore
+      .collection('rooms')
+      .doc(widget.roomId)
+      .collection('joinedUsers')
+      .doc(userId);
+
+  userDocRef.get().then((DocumentSnapshot docSnapshot) {
+    if (docSnapshot.exists) {
+      Map<String, dynamic>? data = docSnapshot.data() as Map<String, dynamic>?;
+      if (data != null) {
+        bool currentMicStatus = data['isMicOn'] as bool? ?? false;
+        bool newMicStatus = !currentMicStatus;
+
+        // Update Firestore and Agora mute state
+        userDocRef.update({'isMicOn': newMicStatus}).then((_) {
+          setState(() {
+            isMicOn = newMicStatus;
+          });
+          print("Mic status updated for $userId: ${newMicStatus ? 'unmuted' : 'muted'}");
+
+          if(userRole == 'Admin') {
+            // Admins control their own local mic
+            _engine.muteLocalAudioStream(!newMicStatus).then((value) {
+              print("Admin local audio stream is now ${newMicStatus ? 'unmuted' : 'muted'}");
+            }).catchError((muteError) {
+              print("Error in muting/unmuting local audio for Admin: $muteError");
+            });
+          } else {
+            // Other roles toggle their own mic status, affecting only local perception
+            print("Attempting to mute/unmute remote audio for $userId");
+            _engine.muteRemoteAudioStream(uid: uId, mute :!newMicStatus).then((_) {
+              print("Remote user $userId audio is now ${newMicStatus ? 'unmuted' : 'muted'}");
+            }).catchError((error) {
+              print("Error muting/unmuting remote user $userId: $error");
+            });
+          }
+        }).catchError((error) {
+          print("Error updating Firestore mic status for $userId: $error");
+        });
+      }
+    }
+  }).catchError((error) {
+    print("Error fetching user document for $userId: $error");
+  });
 }
+
+
+
 
 
   void _showBottomSheet() {
@@ -308,7 +398,7 @@ Future<String> generateToken() async {
     );
   }
 
- @override
+  @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     if (state == AppLifecycleState.detached) {
@@ -318,15 +408,16 @@ Future<String> generateToken() async {
 
   void _handleAppClosed() {
     String userId = FirebaseAuth.instance.currentUser!.uid;
-   leaveRoom(userId, context, widget.roomId , userRole);
+    leaveRoom(userId, context, widget.roomId, userRole);
   }
+
   Future<void> _requestToSpeak() async {
     String userId = FirebaseAuth.instance.currentUser!.uid;
-    User? user = FirebaseAuth.instance.currentUser;
+    User? userr = FirebaseAuth.instance.currentUser;
 
-    if (user != null) {
-      String userName = user.displayName ?? 'Unknown';
-      String userImage = user.photoURL ?? '';
+    if (userr != null) {
+      String userName = userr.displayName ?? 'Unknown';
+      String userImage = userr.photoURL ?? '';
 
       await firestore
           .collection('rooms')
@@ -335,7 +426,7 @@ Future<String> generateToken() async {
           .doc(userId)
           .set({
         'isRequest': true,
-        'name': userName,
+        'name': user!.username ,
         'image': userImage,
       });
     } else {
@@ -348,9 +439,9 @@ Future<String> generateToken() async {
     _engine.leaveChannel();
     WidgetsBinding.instance.removeObserver(this); // Remove observer
 
-    leaveRoom( widget.roomId, context ,widget.roomId,userRole);
+    leaveRoom(widget.roomId, context, widget.roomId, userRole);
     _engine.release();
-        _timer?.cancel();
+    _timer?.cancel();
 
     super.dispose();
   }
@@ -472,14 +563,14 @@ Future<String> generateToken() async {
       //   size: 30,
       // );
       case 'cry':
-       return AnimatedEmoji(
+        return AnimatedEmoji(
           AnimatedEmojis.cry,
           size: 65,
           animate: true,
           repeat: true,
         );
       case 'thumbs_up':
-         return AnimatedEmoji(
+        return AnimatedEmoji(
           AnimatedEmojis.thumbsUp,
           size: 65,
           animate: true,
@@ -535,18 +626,16 @@ Future<String> generateToken() async {
                     //     icon: Icon(Icons.delete)) : SizedBox(),
                     InkWell(
                       onTap: () {
-                    
-                      // Example usage: Check and delete the room if it has no participants
-                        leaveRoom(
-                          FirebaseAuth.instance.currentUser!.uid,
-                          context,
-                          widget.roomId,userRole
-                        );
+                        // Example usage: Check and delete the room if it has no participants
+                        leaveRoom(FirebaseAuth.instance.currentUser!.uid,
+                            context, widget.roomId, userRole);
                       },
                       child: Text(
                         AppText.Leave,
                         style: style(
-                            family: AppFonts.gBold, clr: AppColor.red, size: 20),
+                            family: AppFonts.gBold,
+                            clr: AppColor.red,
+                            size: 20),
                       ),
                     ),
                   ],
@@ -606,7 +695,6 @@ Future<String> generateToken() async {
                             children: [
                               InkWell(
                                 onLongPress: () {
-                               
                                   showOptionsBottomSheet(
                                       context, userDoc.id, userRole);
                                 },
@@ -617,7 +705,9 @@ Future<String> generateToken() async {
                                         radius: 30,
                                         backgroundImage:
                                             NetworkImage(userImage),
-                                            child: (latestReaction != null) ?  _getReactionIcon(latestReaction) :SizedBox(),
+                                        child: (latestReaction != null)
+                                            ? _getReactionIcon(latestReaction)
+                                            : SizedBox(),
                                       ),
                                     ),
                                     // if (latestReaction != null)
@@ -629,7 +719,7 @@ Future<String> generateToken() async {
                               ),
                               SizedBox(height: space2),
                               Text(
-                                userName,
+                                user!.username  ?? user!.name,
                                 style: style(
                                     family: AppFonts.gBold,
                                     size: Get.width * .030),
@@ -650,93 +740,101 @@ Future<String> generateToken() async {
                 },
               ),
             ),
-            StreamBuilder<DocumentSnapshot>(
-              stream: firestore
-                  .collection('rooms')
-                  .doc(widget.roomId)
-                  .collection('joinedUsers')
-                  .doc(userId)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return CircularProgressIndicator();
-                }
-                if (!snapshot.hasData || !snapshot.data!.exists) {
-                  return Text('User data not found');
-                }
-                var userRole = snapshot.data!['role'];
-                return Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    InkWell(
-                            onTap: () {
-                             _showReactionsBottomSheet();
-                            },
-                            child: Container(
-                              padding: EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                  border: Border.all(
-                                    color: AppColor.black,
-                                  ),
-                                  shape: BoxShape.circle,
-                                  color:
-                                      const Color.fromARGB(140, 158, 158, 158)),
-                              child: Icon(
-                                Icons.emoji_emotions,
-                                size: 25,
-                              ),
-                            ),
-                          ),
-                    Align(
-                      alignment: Alignment.bottomCenter,
-                      child: InkWell(
-                        onTap: () {
-                         _toggleMic(userRole);
-                        },
-                        child: Container(
-                          padding: EdgeInsets.all(18),
-                          decoration: BoxDecoration(
-                              border: Border.all(
-                                color: isMicOn ? AppColor.red : AppColor.black,
-                              ),
-                              shape: BoxShape.circle,
-                              color: const Color.fromARGB(140, 158, 158, 158)),
-                          child: Icon(
-                            (userRole == 'Participant')
-                                ? Icons.mic_off
-                                : Icons.mic,
-                            size: 35,
-                            color: isMicOn ? AppColor.red : AppColor.black,
-                          ),
-                        ),
-                      ),
-                    ),
-                    (userRole == 'Admin')
-                        ? InkWell(
-                            onTap: () {
-                              showSpeakRequestsDialog(context, widget.roomId);
-                            },
-                            child: Container(
-                              padding: EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                  border: Border.all(
-                                    color: AppColor.black,
-                                  ),
-                                  shape: BoxShape.circle,
-                                  color:
-                                      const Color.fromARGB(140, 158, 158, 158)),
-                              child: Icon(
-                                Icons.add_alert,
-                                size: 25,
-                              ),
-                            ),
-                          )
-                        : SizedBox()
-                  ],
-                );
-              },
+           StreamBuilder<DocumentSnapshot>(
+  stream: firestore
+      .collection('rooms')
+      .doc(widget.roomId)
+      .collection('joinedUsers')
+      .doc(userId)
+      .snapshots(),
+  builder: (context, snapshot) {
+    if (snapshot.connectionState == ConnectionState.waiting) {
+      return CircularProgressIndicator();
+    }
+
+    // Check for errors or no data
+    if (snapshot.hasError) {
+      return Text('Error: ${snapshot.error}');
+    }
+    if (!snapshot.hasData || !snapshot.data!.exists) {
+      return Text('User data not found');
+    }
+
+    // Safe access to data with null checks
+    Map<String, dynamic>? data = snapshot.data!.data() as Map<String, dynamic>?;
+    if (data == null) {
+      return Text('No data available');
+    }
+
+    bool isMicOn = data['isMicOn'] as bool? ?? false;
+    String userRole = data['role'] as String? ?? 'Participant'; // default to Participant if null
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        InkWell(
+          onTap: () {
+            _showReactionsBottomSheet();
+          },
+          child: Container(
+            padding: EdgeInsets.all(10),
+            decoration: BoxDecoration(
+                border: Border.all(
+                  color: AppColor.black,
+                ),
+                shape: BoxShape.circle,
+                color: const Color.fromARGB(140, 158, 158, 158)),
+            child: Icon(
+              Icons.emoji_emotions,
+              size: 25,
             ),
-           
+          ),
+        ),
+        Align(
+          alignment: Alignment.bottomCenter,
+          child: InkWell(
+            onTap: () {
+              _toggleMic(userRole);
+            },
+            child: Container(
+              padding: EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                  border: Border.all(
+                    color: isMicOn ? AppColor.red : AppColor.black,
+                  ),
+                  shape: BoxShape.circle,
+                  color: const Color.fromARGB(140, 158, 158, 158)),
+              child: Icon(
+                Icons.mic,
+                size: 35,
+                color: isMicOn ? AppColor.red : AppColor.black,
+              ),
+            ),
+          ),
+        ),
+        (userRole == 'Admin') ? InkWell(
+          onTap: () {
+            showSpeakRequestsDialog(context, widget.roomId);
+          },
+          child: Container(
+            padding: EdgeInsets.all(10),
+            decoration: BoxDecoration(
+                border: Border.all(
+                  color: AppColor.black,
+                ),
+                shape: BoxShape.circle,
+                color: const Color.fromARGB(140, 158, 158, 158)),
+            child: Icon(
+              Icons.add_alert,
+              size: 25,
+            ),
+          ),
+        ) : SizedBox()
+      ],
+    );
+  },
+),
+
           ],
         ),
       ),

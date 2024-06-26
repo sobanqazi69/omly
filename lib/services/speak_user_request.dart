@@ -34,33 +34,41 @@ void showSpeakRequestsDialog(BuildContext context, String roomId) {
                   var userName = request['name'];
                   var userImage = request['image'];
 
-                  return ListTile(
-                    leading: CircleAvatar(
-                      backgroundImage: NetworkImage(userImage),
-                    ),
-                   title: Text(userName),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        ElevatedButton(
-                          onPressed: () async {
-                            await acceptRequest(roomId, userId);
-                        //    Navigator.of(context).pop();
-                          },
-                          child: Text('Accept'),
-                        ),
-                        SizedBox(width: 8),
-                        ElevatedButton(
-                          onPressed: () async {
-                            await rejectRequest(roomId, userId);
-                            Navigator.of(context).pop();
-                          },
-                          child: Text('Reject'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red,
+                  return SizedBox(
+                   // height: 300,
+                    child: ListTile(
+                      
+                      leading: CircleAvatar(
+                        backgroundImage: NetworkImage(userImage),
+                      ),
+                     title: Text(userName),
+                      trailing: Row(
+                       mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ElevatedButton(
+                            
+                            onPressed: () async {
+                              await acceptRequest(roomId, userId);
+                          //    Navigator.of(context).pop();
+                            },
+                            child:Icon(Icons.check),
+                             style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green,
+                            ),
                           ),
-                        ),
-                      ],
+                          SizedBox(width: 8),
+                          ElevatedButton(
+                            onPressed: () async {
+                              await rejectRequest(roomId, userId);
+                              Navigator.of(context).pop();
+                            },
+                            child: Icon(Icons.close),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.red,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   );
                 },
