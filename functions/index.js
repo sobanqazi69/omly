@@ -4,6 +4,7 @@ const { RtcTokenBuilder, RtcRole } = require("agora-access-token");
 
 admin.initializeApp();
 
+
 exports.checkUserActivity = functions.pubsub.schedule('every 1 minutes').onRun(async (context) => {
   const now = admin.firestore.Timestamp.now();
   const fiveMinutesAgo = now.toMillis() - (1 * 60 * 1000);
@@ -18,19 +19,36 @@ exports.checkUserActivity = functions.pubsub.schedule('every 1 minutes').onRun(a
       const usersRef = roomsRef.doc(roomId).collection('joinedUsers');
 
       const promise = usersRef.get().then(usersSnapshot => {
-        usersSnapshot.forEach(async userDoc => {
+        const userDeletionPromises = [];
+
+        usersSnapshot.forEach(userDoc => {
           const userId = userDoc.id;
           const userTimestamp = userDoc.data().timestamp;
 
           if (userTimestamp && userTimestamp.toMillis() < fiveMinutesAgo) {
             console.log(`Removing user ${userId} from room ${roomId}`);
-            await usersRef.doc(userId).delete();
-            await roomsRef.doc(roomId).update({
-              participants: admin.firestore.FieldValue.arrayRemove(userId)
-            });
-            console.log(`User ${userId} removed from participants list of room ${roomId}`);
+
+            const deleteUserPromise = usersRef.doc(userId).delete()
+              .then(() => roomsRef.doc(roomId).update({
+                participants: admin.firestore.FieldValue.arrayRemove(userId)
+              }))
+              .then(() => {
+                console.log(`User ${userId} removed from participants list of room ${roomId}`);
+                // Check if the room should be deleted (for example, if there are no more users)
+                return usersRef.get();
+              })
+              .then(updatedUsersSnapshot => {
+                if (updatedUsersSnapshot.empty) {
+                  console.log(`Deleting room ${roomId} as no more users are present`);
+                  return roomsRef.doc(roomId).delete();
+                }
+              });
+
+            userDeletionPromises.push(deleteUserPromise);
           }
         });
+
+        return Promise.all(userDeletionPromises);
       });
 
       promises.push(promise);
@@ -42,6 +60,7 @@ exports.checkUserActivity = functions.pubsub.schedule('every 1 minutes').onRun(a
     console.error('Error checking user activity:', error);
   }
 });
+
 
 const APP_ID = "018815000ecb48bebce36fc9ee84830d";
 const APP_CERTIFICATE = "728609c83fda41b8813aa759807b6a80";

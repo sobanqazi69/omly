@@ -9,6 +9,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:live_13/constants/selected_tags.dart';
+import 'package:live_13/controller/mic_controller.dart';
 import 'package:live_13/models/user_model.dart';
 import 'package:live_13/services/speak_user_request.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -42,6 +43,8 @@ class RoomScreen extends StatefulWidget {
 }
 
 class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver {
+    final MicController micController = Get.put(MicController());
+
   
   Map<int, bool> mutedUsers = {};
 
@@ -325,54 +328,37 @@ class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver {
 //     print("Error fetching user document: $error");
 //   });
 // }
+
+
 void _toggleMic(String userRole) {
-  final String userId = FirebaseAuth.instance.currentUser!.uid;
-  final DocumentReference userDocRef = firestore
-      .collection('rooms')
-      .doc(widget.roomId)
-      .collection('joinedUsers')
-      .doc(userId);
+    final String userId = FirebaseAuth.instance.currentUser!.uid;
+    final DocumentReference userDocRef = FirebaseFirestore.instance
+        .collection('rooms')
+        .doc(widget.roomId)
+        .collection('joinedUsers')
+        .doc(userId);
 
-  userDocRef.get().then((DocumentSnapshot docSnapshot) {
-    if (docSnapshot.exists) {
-      Map<String, dynamic>? data = docSnapshot.data() as Map<String, dynamic>?;
-      if (data != null) {
-        bool currentMicStatus = data['isMicOn'] as bool? ?? false;
-        bool newMicStatus = !currentMicStatus;
+    userDocRef.get().then((DocumentSnapshot docSnapshot) {
+      if (docSnapshot.exists) {
+        Map<String, dynamic>? data = docSnapshot.data() as Map<String, dynamic>?;
+        if (data != null) {
+          bool currentMicStatus = data['isMicOn'] as bool? ?? false;
+          bool newMicStatus = !currentMicStatus;
 
-        // Update Firestore and Agora mute state
-        userDocRef.update({'isMicOn': newMicStatus}).then((_) {
-          setState(() {
-            isMicOn = newMicStatus;
+          // Update Firestore and Agora mute state
+          userDocRef.update({'isMicOn': newMicStatus}).then((_) {
+            micController.isMicOn.value = newMicStatus; // Update GetX state
+            print("Mic status updated for $userId: ${newMicStatus ? 'unmuted' : 'muted'}");
+            _engine.enableLocalAudio(newMicStatus);
+          }).catchError((error) {
+            print("Error updating Firestore mic status for $userId: $error");
           });
-          print("Mic status updated for $userId: ${newMicStatus ? 'unmuted' : 'muted'}");
-          _engine.enableLocalAudio(newMicStatus);
-
-          // if(userRole == 'Admin') {
-          //   // Admins control their own local mic
-          //   _engine.muteLocalAudioStream(!newMicStatus).then((value) {
-          //     print("Admin local audio stream is now ${newMicStatus ? 'unmuted' : 'muted'}");
-          //   }).catchError((muteError) {
-          //     print("Error in muting/unmuting local audio for Admin: $muteError");
-          //   });
-          // } else {
-          //   // Other roles toggle their own mic status, affecting only local perception
-          //   print("Attempting to mute/unmute remote audio for $userId");
-          //   _engine.muteRemoteAudioStream(uid: uId, mute :!newMicStatus).then((_) {
-          //     print("Remote user $userId audio is now ${newMicStatus ? 'unmuted' : 'muted'}");
-          //   }).catchError((error) {
-          //     print("Error muting/unmuting remote user $userId: $error");
-          //   });
-          // }
-        }).catchError((error) {
-          print("Error updating Firestore mic status for $userId: $error");
-        });
+        }
       }
-    }
-  }).catchError((error) {
-    print("Error fetching user document for $userId: $error");
-  });
-}
+    }).catchError((error) {
+      print("Error fetching user document for $userId: $error");
+    });
+  }
 
 
 
@@ -827,29 +813,35 @@ void _toggleMic(String userRole) {
             ),
           ),
         ),
-        Align(
-          alignment: Alignment.bottomCenter,
-          child: InkWell(
+       Align(
+        alignment: Alignment.bottomCenter,
+        child: Obx(() {
+          return InkWell(
             onTap: () {
-              (userRole=='Participant')?_showBottomSheet():
-              _toggleMic(userRole);
+              if (userRole == 'Participant') {
+                _showBottomSheet();
+              } else {
+                _toggleMic(userRole);
+              }
             },
             child: Container(
               padding: EdgeInsets.all(18),
               decoration: BoxDecoration(
-                  border: Border.all(
-                    color: isMicOn ? AppColor.red : AppColor.black,
-                  ),
-                  shape: BoxShape.circle,
-                  color: const Color.fromARGB(140, 158, 158, 158)),
+                border: Border.all(
+                  color: micController.isMicOn.value ? AppColor.red : AppColor.black,
+                ),
+                shape: BoxShape.circle,
+                color: const Color.fromARGB(140, 158, 158, 158),
+              ),
               child: Icon(
-             (userRole=='Participant')? Icons.mic_off :  Icons.mic,
+                userRole == 'Participant' ? Icons.mic_off : Icons.mic,
                 size: 35,
-                color: isMicOn ? AppColor.red : AppColor.black,
+                color: micController.isMicOn.value ? AppColor.red : AppColor.black,
               ),
             ),
-          ),
-        ),
+          );
+        }),
+      ),
         (userRole == 'Admin') ? InkWell(
           onTap: () {
             showSpeakRequestsDialog(context, widget.roomId);
