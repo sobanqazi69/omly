@@ -1,89 +1,103 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
-void showSpeakRequestsDialog(BuildContext context, String roomId) {
-  showDialog(
+void showSpeakRequestsBottomSheet(BuildContext context, String roomId) {
+  showModalBottomSheet(
     context: context,
+    isScrollControlled: true,
     builder: (context) {
-      return AlertDialog(
-        title: Text('Speak Requests'),
-        content: Container(
-          width: double.maxFinite,
-          child: StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('rooms')
-                .doc(roomId)
-                .collection('speakRequests')
-                .snapshots(),
-            builder: (context, snapshot) {
-              if (!snapshot.hasData) {
-                return Center(child: CircularProgressIndicator());
-              }
-              var speakRequests = snapshot.data!.docs;
-
-              if (speakRequests.isEmpty) {
-                return Text('No speak requests');
-              }
-
-              return ListView.builder(
-                shrinkWrap: true,
-                itemCount: speakRequests.length,
-                itemBuilder: (context, index) {
-                  var request = speakRequests[index];
-                  var userId = request.id;
-                  var userName = request['name'];
-                  var userImage = request['image'];
-
-                  return SizedBox(
-                   // height: 300,
-                    child: ListTile(
-                      
-                      leading: CircleAvatar(
-                        backgroundImage: NetworkImage(userImage),
-                      ),
-                     title: Text(userName),
-                      trailing: Row(
-                       mainAxisSize: MainAxisSize.min,
-                        children: [
-                          ElevatedButton(
-                            
-                            onPressed: () async {
-                              await acceptRequest(roomId, userId);
-                          //    Navigator.of(context).pop();
-                            },
-                            child:Icon(Icons.check),
-                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.green,
-                            ),
-                          ),
-                          SizedBox(width: 8),
-                          ElevatedButton(
-                            onPressed: () async {
-                              await rejectRequest(roomId, userId);
-                              Navigator.of(context).pop();
-                            },
-                            child: Icon(Icons.close),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.red,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              );
-            },
-          ),
+      return Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
         ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-            },
-            child: Text('Close'),
-          ),
-        ],
+        child: DraggableScrollableSheet(
+          expand: false,
+          builder: (context, scrollController) {
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Text(
+                    'Speak Requests',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance
+                        .collection('rooms')
+                        .doc(roomId)
+                        .collection('speakRequests')
+                        .snapshots(),
+                    builder: (context, snapshot) {
+                      if (!snapshot.hasData) {
+                        return Center(child: CircularProgressIndicator());
+                      }
+                      var speakRequests = snapshot.data!.docs;
+
+                      if (speakRequests.isEmpty) {
+                        return Center(child: Text('No speak requests'));
+                      }
+
+                      return ListView.builder(
+                        controller: scrollController,
+                        itemCount: speakRequests.length,
+                        itemBuilder: (context, index) {
+                          var request = speakRequests[index];
+                          var userId = request.id;
+                          var userName = request['name'];
+                          var userImage = request['image'];
+
+                          return ListTile(
+                            leading: CircleAvatar(
+                              backgroundImage: NetworkImage(userImage),
+                            ),
+                            title: Text(userName),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                ElevatedButton(
+                                  onPressed: () async {
+                                    await acceptRequest(roomId, userId);
+                                  },
+                                  child: Icon(Icons.check),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.green,
+                                  ),
+                                ),
+                                SizedBox(width: 8),
+                                ElevatedButton(
+                                  onPressed: () async {
+                                    await rejectRequest(roomId, userId);
+                                    Navigator.of(context).pop();
+                                  },
+                                  child: Icon(Icons.close),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.red,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ),
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                  child: Text('Close'),
+                ),
+              ],
+            );
+          },
+        ),
       );
     },
   );

@@ -7,60 +7,59 @@ import 'package:live_13/navigations/navigator.dart';
 import 'package:live_13/views/roomScreens/room_screen.dart';
 
 Future<void> joinRoom(String roomName, String userId, BuildContext context,
-    String description , String roomId,String channelId) async {
+    String description, String roomId, String channelId) async {
   try {
     UserModel? userr = userData.currentUser;
     FirebaseFirestore firestore = FirebaseFirestore.instance;
 
-    // Query to find the room with the specified roomName and description
+    // Query to find the room with the specified roomId
     QuerySnapshot querySnapshot = await firestore
         .collection('rooms')
         .where('roomId', isEqualTo: roomId)
         .get();
 
-      DocumentReference roomRef =FirebaseFirestore.instance.collection('rooms').doc(roomId);
+    DocumentReference roomRef = firestore.collection('rooms').doc(roomId);
 
- FirebaseFirestore.instance.collection('rooms').doc(roomId).update({
-          'participants': FieldValue.arrayUnion([userId])
+    // Update the room's participants list
+    await roomRef.update({
+      'participants': FieldValue.arrayUnion([userId])
+    });
 
- });
-      // Update the room's participants list
-     
+    // Fetch user details from Google account
+    User? user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      String displayName = user.displayName ?? 'Unknown User';
+      String userImage =
+          user.photoURL ?? 'https://example.com/default_image.jpg';
+      String userRole = 'Participant'; // or whatever role you want to assign
+      String username = userr?.username ?? displayName;
 
-      // Fetch user details from Google account
-      User? user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        String userName = user.displayName ?? 'Unknown User';
-        String userImage =
-            user.photoURL ?? 'https://example.com/default_image.jpg';
-        String userRole = 'Participant'; // or whatever role you want to assign
+      // Create a subcollection named 'joinedUsers' under the room document
+      DocumentReference joinedUserRef =
+          roomRef.collection('joinedUsers').doc(userId);
 
-        // Create a subcollection named 'joinedUsers' under the room document
-        DocumentReference joinedUserRef =
-            roomRef.collection('joinedUsers').doc(userId);
+      // Add a document with the user's details
+      await joinedUserRef.set({
+        'name': displayName,
+        'image': userImage,
+        'role': userRole,
+        'username': username
+      });
 
-        // Add a document with the user's details
-       await joinedUserRef
-                .set({'name': userName, 'image': userImage, 'role': userRole , 'username' : userr!.username});
-
-        // String channelId = generateChannelId();
-
-        // updateChannelIdIfNull(roomName, description, channelId);
-
-        // Navigate to the RoomScreen
-        CustomNavigator().pushReplacement(
-            context, RoomScreen(roomName: roomName, roomDesc: description ,roomId: roomId, channelId: channelId,));
-        print("User added to room successfully!");
-      } else {
-        print("No user is currently signed in.");
-      }
-     
+      // Navigate to the RoomScreen
+      CustomNavigator().pushReplacement(
+          context,
+          RoomScreen(
+            roomName: roomName,
+            roomDesc: description,
+            roomId: roomId,
+            channelId: channelId,
+          ));
+      print("User added to room successfully!");
+    } else {
+      print("No user is currently signed in.");
+    }
   } catch (e) {
     print("Error joining room: $e");
   }
 }
-
-
-
-
-

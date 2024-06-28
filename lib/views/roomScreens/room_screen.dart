@@ -61,7 +61,7 @@ class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver {
 
   @override
   void initState() {
-    WidgetsBinding.instance.addObserver(this); // Add observer
+    //WidgetsBinding.instance.addObserver(this); // Add observer
     super.initState();
         _getUserRole(); 
 
@@ -613,15 +613,14 @@ void _toggleMic(String userRole) {
     String userId = FirebaseAuth.instance.currentUser!.uid;
     return Scaffold(
       backgroundColor: AppColor.white,
-      appBar: AppBar(
-        title: Text(widget.roomName),
-      ),
+     
       body: Padding(
         padding: const EdgeInsets.all(10.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.start,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            SizedBox(height: space19,),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -844,7 +843,7 @@ void _toggleMic(String userRole) {
       ),
         (userRole == 'Admin') ? InkWell(
           onTap: () {
-            showSpeakRequestsDialog(context, widget.roomId);
+            showSpeakRequestsBottomSheet(context, widget.roomId);
           },
           child: Container(
             padding: EdgeInsets.all(10),

@@ -6,6 +6,7 @@ import 'package:get/get.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:hexcolor/hexcolor.dart';
 import 'package:live_13/constants/constants.dart';
+import 'package:live_13/models/user_model.dart';
 import 'package:live_13/services/databaseService/database_services.dart';
 import 'package:live_13/views/adminScreens/admin_home.dart';
 import 'package:live_13/navigations/navigator.dart';
@@ -18,6 +19,9 @@ import '../views/superAdmin/super_admin_screen.dart';
 
 
 class AuthService {
+      final DatabaseServices _firestoreService = DatabaseServices();
+
+
 
   Future<void> signInWithGoogle(BuildContext context) async {
     try {
@@ -36,6 +40,7 @@ class AuthService {
 
       await FirebaseAuth.instance.signInWithCredential(credential);
       User? user = FirebaseAuth.instance.currentUser;
+      _fetchUserData();
 
       if(user!=null){
         Map<String,dynamic> userDataToSave = {
@@ -64,6 +69,8 @@ class AuthService {
             return;
           }
         }
+        _fetchUserData();
+        
         if (userData.containsKey('username') && userData['username'].toString().isNotEmpty) {
           if(user.uid == kAdminUid){
             CustomNavigator().pushReplacement(context, SuperAdminScreen());
@@ -100,6 +107,12 @@ class AuthService {
       return true;
     } on Exception catch (_) {
       return false;
+    }
+  }
+  Future<void> _fetchUserData() async {
+    UserModel? user = await _firestoreService.getCurrentUserData();
+    if (user != null) {
+      userData.currentUser = user;
     }
   }
 }
