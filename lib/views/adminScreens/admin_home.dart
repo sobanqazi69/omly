@@ -37,13 +37,15 @@ class _AdminScreenState extends State<AdminScreen> {
       ),
       appBar: AppBar(
         backgroundColor: AppColor.red,
-        actions: [
-          Center(child: Text(userr?.username ?? user!.displayName ?? 'Unknow User' , style: TextStyle(fontFamily: AppFonts.gMedium , fontSize: 16, letterSpacing: 1),)),
-          IconButton(
+       leading:  IconButton(
               onPressed: () {
                 AuthService().signOutFromGoogle(context);
               },
-              icon: Icon(Icons.logout))
+              icon: Icon(Icons.logout)),
+        actions: [
+                    Center(child: Text(userr?.username ?? user!.displayName ?? 'Unknow User' , style: TextStyle(fontFamily: AppFonts.gMedium , fontSize: 16, letterSpacing: 1),)),
+SizedBox(width: space10,)
+         
         ],
       ),
       body: Column(
