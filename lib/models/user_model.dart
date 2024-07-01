@@ -4,9 +4,11 @@ class UserModel {
   String name;
   String role;
   String username;
+  String image;
 
   UserModel({
     required this.userId,
+    required this.image,
     required this.email,
     required this.name,
     required this.role,
@@ -19,6 +21,7 @@ class UserModel {
       email: data['email'] ?? '',
       name: data['name'] ?? '',
       role: data['role'] ?? '',
+       image: data['image'] ?? '',
       username: data['username'] ?? '',
     );
   }
@@ -30,6 +33,7 @@ class UserModel {
       'name': name,
       'role': role,
       'username': username,
+      'image': image
     };
   }
 }

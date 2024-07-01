@@ -11,6 +11,7 @@ import 'package:live_13/services/databaseService/database_services.dart';
 import 'package:live_13/views/adminScreens/admin_home.dart';
 import 'package:live_13/navigations/navigator.dart';
 import 'package:live_13/views/authScreens/welcomeScreen.dart';
+import 'package:live_13/views/splashScreen/splash_screen.dart';
 import 'package:live_13/views/userNameScreen/user_name_screen.dart';
 import 'package:live_13/views/userScreens/user_screen.dart';
 
@@ -40,14 +41,14 @@ class AuthService {
 
       await FirebaseAuth.instance.signInWithCredential(credential);
       User? user = FirebaseAuth.instance.currentUser;
-      _fetchUserData();
 
       if(user!=null){
         Map<String,dynamic> userDataToSave = {
           'email': user.email,
           'role': 'Participant',
           'name': user.displayName,
-          'userId': user.uid
+          'userId': user.uid,
+          'image': user.photoURL
         };
         await DatabaseServices().saveUserData(userDataToSave);
         DocumentSnapshot userDoc = await DatabaseServices().getUserData(user.uid);
@@ -69,21 +70,22 @@ class AuthService {
             return;
           }
         }
-        _fetchUserData();
         
         if (userData.containsKey('username') && userData['username'].toString().isNotEmpty) {
           if(user.uid == kAdminUid){
             CustomNavigator().pushReplacement(context, SuperAdminScreen());
           }
           else if (userRole == 'Admin') {
-            CustomNavigator().pushTo(context, AdminScreen());
+            CustomNavigator().pushTo(context, SplashScreen());
           } else {
-            CustomNavigator().pushReplacement(context, UserScreen());
+            CustomNavigator().pushReplacement(context, SplashScreen());
           }
         }
         else {
           CustomNavigator().pushReplacement(context, UserNameScreen(navigationInteger: 1));
         }
+              _fetchUserData();
+
 
       }
       else {

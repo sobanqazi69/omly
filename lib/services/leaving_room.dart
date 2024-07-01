@@ -7,18 +7,28 @@ import 'package:live_13/views/adminScreens/admin_home.dart';
 import 'package:live_13/views/roomScreens/room_screen.dart';
 import 'package:live_13/views/userScreens/user_screen.dart';
 
-Future<void> leaveRoom( String userId, BuildContext context, String roomiD , String userRole) async {
+
+Future<void> leaveRoom(String userId, BuildContext context, String roomId, String userRole) async {
   try {
     FirebaseFirestore firestore = FirebaseFirestore.instance;
-                          final roomService = RoomService();
+    final roomService = RoomService();
 
-    
     QuerySnapshot querySnapshot = await firestore.collection('rooms')
-      .where('roomId', isEqualTo: roomiD)
+      .where('roomId', isEqualTo: roomId)
       .get();
 
     if (querySnapshot.docs.isNotEmpty) {
       DocumentReference roomRef = querySnapshot.docs.first.reference;
+
+      // Store the user's role before removing the document
+      DocumentReference userDocRef = roomRef.collection('joinedUsers').doc(userId);
+      DocumentSnapshot userDoc = await userDocRef.get();
+      if (userDoc.exists) {
+        String userRole = userDoc['role'];
+        await firestore.collection('rooms').doc(roomId).collection('userRoles').doc(userId).set({
+          'role': userRole,
+        });
+      }
 
       // Remove the user from the participants list
       await roomRef.update({
@@ -29,20 +39,14 @@ Future<void> leaveRoom( String userId, BuildContext context, String roomiD , Str
       await roomRef.collection('joinedUsers').doc(userId).delete();
 
       // Navigate to the appropriate screen based on the user role
-      // if (userId == 'w44C44KnLpYgcaaLqah2CFG4QU93') {
-      //   CustomNavigator().pushTo(context, AdminScreen());
-      // } else {
-      //   CustomNavigator().pushTo(context, UserScreen());
-      // }
-     if (userRole == 'Admin') {
-            CustomNavigator().pushReplacement(context, AdminScreen());
-          } else {
-            CustomNavigator().pushReplacement(context, UserScreen());
-          }
-      
-      print("User removed from room successfully!");
-        roomService.checkAndDeleteRoomIfEmpty(roomiD);
+      if (userRole == 'Admin') {
+        CustomNavigator().pushReplacement(context, AdminScreen());
+      } else {
+        CustomNavigator().pushReplacement(context, UserScreen());
+      }
 
+      print("User removed from room successfully!");
+      roomService.checkAndDeleteRoomIfEmpty(roomId);
     } else {
       print("Room not found");
     }

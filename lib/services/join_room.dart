@@ -1,7 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:live_13/models/user_model.dart';
 import 'package:live_13/navigations/navigator.dart';
 import 'package:live_13/views/roomScreens/room_screen.dart';
@@ -20,30 +19,35 @@ Future<void> joinRoom(String roomName, String userId, BuildContext context,
 
     DocumentReference roomRef = firestore.collection('rooms').doc(roomId);
 
-    // Update the room's participants list
-    await roomRef.update({
-      'participants': FieldValue.arrayUnion([userId])
-    });
-
     // Fetch user details from Google account
     User? user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       String displayName = user.displayName ?? 'Unknown User';
       String userImage =
-          user.photoURL ?? 'https://example.com/default_image.jpg';
-      String userRole = 'Participant'; // or whatever role you want to assign
+          userr?.image ?? 'https://example.com/default_image.jpg';
       String username = userr?.username ?? displayName;
 
-      // Create a subcollection named 'joinedUsers' under the room document
-      DocumentReference joinedUserRef =
-          roomRef.collection('joinedUsers').doc(userId);
+      // Check if the user has an existing role stored
+      DocumentReference roleRef = roomRef.collection('userRoles').doc(userId);
+      DocumentSnapshot roleDoc = await roleRef.get();
 
-      // Add a document with the user's details
+      String userRole = 'Participant'; // Default role
+      if (roleDoc.exists) {
+        userRole = roleDoc['role'];
+      }
+
+      // Add or update the user's document in the joinedUsers subcollection
+      DocumentReference joinedUserRef = roomRef.collection('joinedUsers').doc(userId);
       await joinedUserRef.set({
         'name': displayName,
         'image': userImage,
         'role': userRole,
         'username': username
+      });
+
+      // Update the room's participants list
+      await roomRef.update({
+        'participants': FieldValue.arrayUnion([userId])
       });
 
       // Navigate to the RoomScreen
@@ -63,3 +67,4 @@ Future<void> joinRoom(String roomName, String userId, BuildContext context,
     print("Error joining room: $e");
   }
 }
+

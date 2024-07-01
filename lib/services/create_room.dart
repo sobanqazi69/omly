@@ -25,7 +25,8 @@ Future<void> addRoomData(String roomName, String description,
       'createdAt': FieldValue.serverTimestamp(),
       'participants': [],
       'channelId': channelId,
-      'password': '123456'
+      'password': '123456',
+      'admin' : FirebaseAuth.instance.currentUser!.uid,
     };
 
     // Add the document to Firestore and get the DocumentReference
@@ -53,7 +54,7 @@ Future<void> addRoomData(String roomName, String description,
 
       // Add a document with the user's details
       await joinedUserRef
-          .set({'name': userName, 'image': userImage, 'role': 'Admin' , 'username': userr!.username});
+          .set({'name': userName, 'image': userr?.image ?? userImage, 'role': 'Admin' , 'username': userr!.username});
 
       // String channelId = generateChannelId();
 

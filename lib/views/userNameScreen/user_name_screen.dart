@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:live_13/config/app_fonts.dart';
+import 'package:live_13/views/splashScreen/splash_screen.dart';
 import '../../config/app_colors.dart';
 import '../../navigations/navigator.dart';
 import '../../services/auth_service.dart';
@@ -114,9 +115,9 @@ class _UserNameScreenState extends State<UserNameScreen> {
                   ),
                 );
                 if (widget.navigationInteger == 0) {
-                  CustomNavigator().pushReplacement(context, AdminScreen());
+                  CustomNavigator().pushReplacement(context, SplashScreen());
                 } else {
-                  CustomNavigator().pushReplacement(context, UserScreen());
+                  CustomNavigator().pushReplacement(context, SplashScreen());
                 }
               }
                   : null,

@@ -62,8 +62,8 @@ exports.checkUserActivity = functions.pubsub.schedule('every 1 minutes').onRun(a
 });
 
 
-const APP_ID = "018815000ecb48bebce36fc9ee84830d";
-const APP_CERTIFICATE = "728609c83fda41b8813aa759807b6a80";
+const APP_ID = "c06e288932ee4219a255f2e749454369";
+const APP_CERTIFICATE = "dacf1c546f0b4e14ad79900557a2ad02";
 exports.generateAgoraToken = functions.https.onCall((data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError(

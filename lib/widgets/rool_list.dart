@@ -18,7 +18,6 @@ class UsersRoomsList extends StatelessWidget {
             return Center(child: CircularProgressIndicator());
           } else if (snapshot.hasError) {
             print(snapshot.error);
-
             return Center(child: Text(''));
           } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
             return Center(child: Text('No rooms found'));
@@ -31,11 +30,10 @@ class UsersRoomsList extends StatelessWidget {
                 final roomName = room['roomName'];
                 final roomId = room['roomId'];
                 final description = room['description'];
-                final createdAt = room['createdAt']
-                    ?.toDate(); // Assuming createdAt is a Timestamp
+                final createdAt = room['createdAt']?.toDate();
                 final interests = room['interests'];
                 final participants = room['participants'];
-                 final channelId = room['channelId'];
+                final channelId = room['channelId'];
                 final participantsCount = participants.length;
 
                 return InkWell(
@@ -43,12 +41,11 @@ class UsersRoomsList extends StatelessWidget {
                     User? user = FirebaseAuth.instance.currentUser;
                     if (user != null) {
                       await joinRoom(
-                          roomName, user.uid, context, description, roomId , channelId);
+                          roomName, user.uid, context, description, roomId, channelId);
                     }
                   },
                   child: Padding(
-                    padding:
-                        EdgeInsets.only(bottom: 8.0, left: 8.0, right: 8.0),
+                    padding: EdgeInsets.only(bottom: 8.0, left: 8.0, right: 8.0),
                     child: Container(
                       height: Get.height * .25,
                       decoration: BoxDecoration(
@@ -64,8 +61,7 @@ class UsersRoomsList extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Padding(
-                                padding:
-                                    const EdgeInsets.only(left: 20, top: 10),
+                                padding: const EdgeInsets.only(left: 20, top: 10),
                                 child: Text(
                                   'Live',
                                   style: style(
@@ -76,8 +72,7 @@ class UsersRoomsList extends StatelessWidget {
                                 ),
                               ),
                               Padding(
-                                padding:
-                                    const EdgeInsets.only(left: 20, top: 10),
+                                padding: const EdgeInsets.only(left: 20, top: 10),
                                 child: Text(
                                   roomName,
                                   style: style(
@@ -104,8 +99,7 @@ class UsersRoomsList extends StatelessWidget {
                                   height: 2,
                                   color: AppColor.white),
                               Padding(
-                                padding:
-                                    const EdgeInsets.only(left: 20, top: 5),
+                                padding: const EdgeInsets.only(left: 20, top: 5),
                                 child: Wrap(
                                   spacing: 8.0,
                                   children: interests.map<Widget>((interest) {

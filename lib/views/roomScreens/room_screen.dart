@@ -12,6 +12,7 @@ import 'package:live_13/constants/selected_tags.dart';
 import 'package:live_13/controller/mic_controller.dart';
 import 'package:live_13/models/user_model.dart';
 import 'package:live_13/services/speak_user_request.dart';
+import 'package:live_13/views/userScreens/user_screen.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:live_13/Config/app_spacing.dart';
 import 'package:live_13/Config/app_theme.dart';
@@ -21,7 +22,7 @@ import 'package:live_13/constants/constant_text.dart';
 import 'package:live_13/services/leaving_room.dart';
 
 const appId =
-    "018815000ecb48bebce36fc9ee84830d"; // Replace with your actual Agora App ID
+    "c06e288932ee4219a255f2e749454369"; // Replace with your actual Agora App ID
 
 const reactions = ['laugh', 'cry', 'thumbs_up'];
 
@@ -123,27 +124,24 @@ class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver {
       _updateTimestampIfUserExists();
     });
   }
+Future<void> _getUserRole() async {
+  String userId = FirebaseAuth.instance.currentUser!.uid;
+  DocumentSnapshot userDoc = await firestore
+      .collection('rooms')
+      .doc(widget.roomId)
+      .collection('joinedUsers')
+      .doc(userId)
+      .get();
 
-  Future<void> _getUserRole() async {
-    String userId = FirebaseAuth.instance.currentUser!.uid;
-    DocumentSnapshot userDoc = await firestore
-        .collection('rooms')
-        .doc(widget.roomId)
-        .collection('joinedUsers')
-        .doc(userId)
-        .get();
-
-    if (userDoc.exists) {
-      if (mounted) {
-        setState(() {
-          userRole = userDoc['role'];
-        });
-      }
-
-
+  if (userDoc.exists) {
+    if (mounted) {
+      setState(() {
+        userRole = userDoc['role'];
+      });
     }
-   
   }
+}
+
 
 
   Future<void> signInAnonymously() async {
@@ -431,7 +429,7 @@ void _toggleMic(String userRole) {
 
   void _handleAppClosed() {
     String userId = FirebaseAuth.instance.currentUser!.uid;
-    leaveRoom(userId, context, widget.roomId, userRole);
+    leaveRoom(userId, context, widget.roomId, user!.role);
   }
 
   Future<void> _requestToSpeak() async {
@@ -450,7 +448,7 @@ void _toggleMic(String userRole) {
           .set({
         'isRequest': true,
         'name': user!.username ,
-        'image': userImage,
+        'image': user?.image ?? userImage,
       });
     } else {
       print('No user signed in');
@@ -462,53 +460,61 @@ void _toggleMic(String userRole) {
     _engine.leaveChannel();
     WidgetsBinding.instance.removeObserver(this); // Remove observer
 
-    leaveRoom(widget.roomId, context, widget.roomId, userRole);
+    leaveRoom(widget.roomId, context, widget.roomId, user!.role);
     _engine.release();
     _timer?.cancel();
 
     super.dispose();
   }
 
-  void showOptionsBottomSheet(
-      BuildContext context, String userId, String userRole) {
-    if (this.userRole != 'Admin') {
-      return;
-    }
-    showModalBottomSheet(
-      context: context,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: Icon(Icons.remove_circle_outline),
-                title: Text('Remove from Moderator'),
-                onTap: () {
-                  _removeFromModerator(userId);
-                  Navigator.pop(context);
-                },
-              ),
-              // ListTile(
-              //   leading: Icon(Icons.remove_circle),
-              //   title: Text('Kick from Room'),
-              //   onTap: () {
-              //     _kickFromRoom(userId);
-              //     Navigator.pop(context);
-              //   },
-              // ),
-            ],
-          ),
-        );
-      },
-    );
+  void showOptionsBottomSheet(BuildContext context, String userId, String userRole) {
+  if (this.userRole != 'Admin') {
+    return;
   }
+  showModalBottomSheet(
+    context: context,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (context) {
+      return Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+           (userRole == 'Moderator')? ListTile(
+              leading: Icon(Icons.remove_circle_outline),
+              title: Text('Remove from Moderator'),
+              onTap: () {
+                _removeFromModerator(userId);
+                Navigator.pop(context);
+              },
+            ): SizedBox(),
+            ListTile(
+              leading: Icon(Icons.remove_circle),
+              title: Text('Kick from Room'),
+              onTap: () {
+                _kickFromRoom(userId);
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.block),
+              title: Text('Block User'),
+              onTap: () {
+                _blockUser(userId);
+                Navigator.pop(context);
+              },
+            ),
+          ],
+        ),
+      );
+    },
+  );
+}
 
-  Future<void> _removeFromModerator(String userId) async {
+
+Future<void> _removeFromModerator(String userId) async {
     await firestore
         .collection('rooms')
         .doc(widget.roomId)
@@ -517,14 +523,44 @@ void _toggleMic(String userRole) {
         .update({'role': 'Participant'});
   }
 
-  Future<void> _kickFromRoom(String userId) async {
-    await firestore
-        .collection('rooms')
-        .doc(widget.roomId)
-        .collection('joinedUsers')
-        .doc(userId)
-        .delete();
+Future<void> _kickFromRoom(String userId) async {
+  final roomRef = firestore.collection('rooms').doc(widget.roomId);
+
+  // Start a Firestore batch operation
+  WriteBatch batch = firestore.batch();
+
+  // Remove the user document from the joinedUsers subcollection
+  batch.delete(roomRef.collection('joinedUsers').doc(userId));
+
+  // Get the room document to update the participant list
+  DocumentSnapshot roomDoc = await roomRef.get();
+  if (roomDoc.exists) {
+    var data = roomDoc.data() as Map<String, dynamic>?;
+    if (data != null) {
+      List participants = List.from(data['participants'] ?? []);
+      participants.remove(userId);
+
+      // Update the participants list in the room document
+      batch.update(roomRef, {'participants': participants});
+    }
   }
+
+  // Commit the batch operation
+  await batch.commit();
+}
+Future<void> _blockUser(String userId) async {
+  final roomRef = firestore.collection('rooms').doc(widget.roomId);
+
+  // Add the user ID to the blockedUsers array
+  await roomRef.update({
+    'blockedUsers': FieldValue.arrayUnion([userId])
+  });
+  _kickFromRoom(userId);
+
+  // Remove the user document from the joinedUsers subcollection
+  
+}
+
 
   void _sendReaction(String reaction) async {
     String userId = FirebaseAuth.instance.currentUser!.uid;
@@ -570,6 +606,42 @@ void _toggleMic(String userRole) {
       ),
     );
   }
+  Future<void> showLeaveConfirmationDialog(BuildContext context, String userId, String roomId, String userRole) {
+  return showDialog<void>(
+    context: context,
+    barrierDismissible: false, // user must tap button to dismiss
+    builder: (BuildContext dialogContext) {
+      return AlertDialog(
+        title: Text('Confirm Leave Room'),
+        content: Text('Are you sure you want to leave the room?'),
+        actions: <Widget>[
+          TextButton(
+            child: Text('Cancel'),
+            onPressed: () {
+              Navigator.of(dialogContext).pop(); // Dismiss the dialog
+            },
+          ),
+          TextButton(
+            child: Text('Leave'),
+            onPressed: () {
+              Navigator.of(dialogContext).pop(); // Dismiss the dialog
+  leaveRoom(FirebaseAuth.instance.currentUser!.uid,
+                            context, widget.roomId, user!.role);            },
+          ),
+        ],
+      );
+    },
+  );
+}
+
+
+void navigateToUserScreen() {
+  Navigator.pushReplacement(
+    context,
+    MaterialPageRoute(builder: (context) => UserScreen()),
+  );
+  Get.snackbar('Oops', 'You Have Been Kicked By The Admin');
+}
 
   Widget _getReactionIcon(String reaction) {
     switch (reaction) {
@@ -649,8 +721,9 @@ void _toggleMic(String userRole) {
                     InkWell(
                       onTap: () {
                         // Example usage: Check and delete the room if it has no participants
-                        leaveRoom(FirebaseAuth.instance.currentUser!.uid,
-                            context, widget.roomId, userRole);
+                        // leaveRoom(FirebaseAuth.instance.currentUser!.uid,
+                        //     context, widget.roomId, user!.role);
+                        showLeaveConfirmationDialog(context,FirebaseAuth.instance.currentUser!.uid,widget.roomId,user!.role);
                       },
                       child: Text(
                         AppText.Leave,
@@ -680,19 +753,29 @@ void _toggleMic(String userRole) {
                   String roomId = roomDoc.id;
 
                   return StreamBuilder<QuerySnapshot>(
-                    stream: FirebaseFirestore.instance
-                        .collection('rooms')
-                        .doc(roomId)
-                        .collection('joinedUsers')
-                        .snapshots(),
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return Center(child: CircularProgressIndicator());
-                      }
-                      if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                        return Center(child: Text("No users in this room"));
-                      }
+  stream: FirebaseFirestore.instance
+      .collection('rooms')
+      .doc(roomId)
+      .collection('joinedUsers')
+      .snapshots(),
+  builder: (context, snapshot) {
+    if (snapshot.connectionState == ConnectionState.waiting) {
+      return Center(child: CircularProgressIndicator());
+    }
+    if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+      return Center(child: Text("No users in this room"));
+    }
 
+    // Check if the current user's document exists
+    var userDocExists = snapshot.data!.docs.any((doc) => doc.id == userId);
+
+    if (!userDocExists) {
+      // If the user's document does not exist, navigate to the user screen
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        navigateToUserScreen();
+      });
+      return SizedBox();
+    }
                       var filteredDocs = snapshot.data!.docs;
 
                       return GridView.builder(
@@ -717,7 +800,7 @@ void _toggleMic(String userRole) {
                             children: [
                               InkWell(
                                 onLongPress: () {
-                                  showOptionsBottomSheet(
+                                 (userRole=='Admin')? SizedBox(): showOptionsBottomSheet(
                                       context, userDoc.id, userRole);
                                 },
                                 child: Stack(
