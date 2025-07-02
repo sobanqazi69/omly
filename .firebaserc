@@ -1,5 +1,7 @@
 {
   "projects": {
-    "default": "live13-15437"
-  }
+    "default": "litchat-6a671"
+  },
+  "targets": {},
+  "etags": {}
 }

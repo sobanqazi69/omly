@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:live_13/Config/app_theme.dart';
 import 'package:live_13/Utils/custom_screen.dart';
+import 'package:live_13/config/app_colors.dart';
 import 'package:live_13/config/app_fonts.dart';
 import 'package:live_13/constants/selected_tags.dart';
 
@@ -60,7 +61,7 @@ class _CustomChipSelectionState extends State<CustomChipSelection> {
           
           selected: isSelected,
           onSelected: (_) => _toggleSelection(tag),
-          selectedColor: Colors.red,
+          selectedColor: AppColor.red,
           backgroundColor: Color.fromARGB(25, 158, 158, 158),
           labelStyle: style(family: AppFonts.gRegular, size: Get.width * .035)
         );

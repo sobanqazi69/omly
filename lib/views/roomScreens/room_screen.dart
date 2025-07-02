@@ -11,6 +11,7 @@ import 'package:get/get.dart';
 import 'package:live_13/constants/selected_tags.dart';
 import 'package:live_13/controller/mic_controller.dart';
 import 'package:live_13/models/user_model.dart';
+import 'package:live_13/services/agora_token_service.dart';
 import 'package:live_13/services/speak_user_request.dart';
 import 'package:live_13/views/userScreens/user_screen.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -22,7 +23,7 @@ import 'package:live_13/constants/constant_text.dart';
 import 'package:live_13/services/leaving_room.dart';
 
 const appId =
-    "c06e288932ee4219a255f2e749454369"; // Replace with your actual Agora App ID
+    "f0ac4696784a47baa71c64381cabbacd"; // Replace with your actual Agora App ID
 
 const reactions = ['laugh', 'cry', 'thumbs_up'];
 
@@ -154,29 +155,22 @@ Future<void> _getUserRole() async {
   }
 
   Future<String> generateToken() async {
-    if (FirebaseAuth.instance.currentUser == null) {
-      await signInAnonymously();
-    }
+    try {
+      // Use Railway-based Agora token service
+      final token = await fetchAgoraToken(
+        channelName: widget.channelId,
+        uid: uId,
+      );
 
-    if (FirebaseAuth.instance.currentUser != null) {
-    //   DocumentSnapshot? roomDoc = await _getRoomDocument();
-   
-    // String channelId = roomDoc!['channelId'];
-      HttpsCallable callable =
-          FirebaseFunctions.instance.httpsCallable('generateAgoraToken');
-      try {
-        final response = await callable.call({
-          'channelName': widget.channelId,
-          'uid': 0,
-        });
-        print('Token: ${response.data['token']}');
-        return response.data['token'];
-      } catch (e) {
-        print('Error calling function: $e');
-        rethrow;
+      if (token != null && token.isNotEmpty) {
+        print('Token generated successfully: ${token.substring(0, 20)}...');
+        return token;
+      } else {
+        throw Exception('Failed to generate Agora token - received null or empty token');
       }
-    } else {
-      throw Exception('User is not authenticated');
+    } catch (e) {
+      print('Error generating Agora token: $e');
+      rethrow;
     }
   }
 

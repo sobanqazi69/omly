@@ -50,21 +50,19 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyBTWySEPqTKXfVjWGFnNHe9OgXQm2svUhE',
-    appId: '1:124317861334:android:6f55428fd160046cbe9077',
-    messagingSenderId: '124317861334',
-    projectId: 'live13-15437',
-    storageBucket: 'live13-15437.appspot.com',
+    apiKey: 'AIzaSyAmbbncKW2NSKfTH9OoieyMFlB5lFF2ZHM',
+    appId: '1:304131835356:android:c79fa763425bcd029cfb19',
+    messagingSenderId: '304131835356',
+    projectId: 'litchat-6a671',
+    storageBucket: 'litchat-6a671.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyDUDL6xJwdo6CvO9Qf8AcxnDf2KjlHtMMk',
-    appId: '1:124317861334:ios:d9ae7efcd192962cbe9077',
-    messagingSenderId: '124317861334',
-    projectId: 'live13-15437',
-    storageBucket: 'live13-15437.appspot.com',
-    androidClientId: '124317861334-3rscslfe1a8cbi7rnfg91g20nk7lvd6a.apps.googleusercontent.com',
-    iosClientId: '124317861334-eefdkscmeudv28vv24icis57v8c4eq6h.apps.googleusercontent.com',
+    apiKey: 'AIzaSyCUE3iHkY9AvwzlSnFBLQuV52NnbPuPRtw',
+    appId: '1:304131835356:ios:f4f0b750b2db074d9cfb19',
+    messagingSenderId: '304131835356',
+    projectId: 'litchat-6a671',
+    storageBucket: 'litchat-6a671.firebasestorage.app',
     iosBundleId: 'com.example.live13',
   );
 

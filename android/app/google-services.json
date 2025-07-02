@@ -1,51 +1,45 @@
 {
   "project_info": {
-    "project_number": "124317861334",
-    "project_id": "live13-15437",
-    "storage_bucket": "live13-15437.appspot.com"
+    "project_number": "304131835356",
+    "project_id": "litchat-6a671",
+    "storage_bucket": "litchat-6a671.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:124317861334:android:6f55428fd160046cbe9077",
+        "mobilesdk_app_id": "1:304131835356:android:8be422b09062acc29cfb19",
         "android_client_info": {
-          "package_name": "com.live13.live13"
+          "package_name": "com.litchat.app"
         }
       },
-      "oauth_client": [
-        {
-          "client_id": "124317861334-e2ugc37d82d214d73u47hu7abbqbngpm.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.live13.live13",
-            "certificate_hash": "6823b48729ee81c6f86cb6f5f8139a620ec737ac"
-          }
-        },
-        {
-          "client_id": "124317861334-hmd3bbj58aden8e6rhr5u6it0afkfm0f.apps.googleusercontent.com",
-          "client_type": 3
-        }
-      ],
+      "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyBTWySEPqTKXfVjWGFnNHe9OgXQm2svUhE"
+          "current_key": "AIzaSyAmbbncKW2NSKfTH9OoieyMFlB5lFF2ZHM"
         }
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": [
-            {
-              "client_id": "124317861334-hmd3bbj58aden8e6rhr5u6it0afkfm0f.apps.googleusercontent.com",
-              "client_type": 3
-            },
-            {
-              "client_id": "124317861334-eefdkscmeudv28vv24icis57v8c4eq6h.apps.googleusercontent.com",
-              "client_type": 2,
-              "ios_info": {
-                "bundle_id": "com.example.live13"
-              }
-            }
-          ]
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:304131835356:android:c79fa763425bcd029cfb19",
+        "android_client_info": {
+          "package_name": "com.live13.live13"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAmbbncKW2NSKfTH9OoieyMFlB5lFF2ZHM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
         }
       }
     }

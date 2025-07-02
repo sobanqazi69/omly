@@ -1,1 +1,1 @@
-const String kAdminUid = 'tknTD43269YBIS5bRLVRwwi7BNd2';
+const String kAdminUid = 'IxUOSPOJuwYuPzJ8gWXholZBai82';

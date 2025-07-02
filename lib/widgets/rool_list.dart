@@ -49,7 +49,7 @@ class UsersRoomsList extends StatelessWidget {
                     child: Container(
                       height: Get.height * .25,
                       decoration: BoxDecoration(
-                        color: Color.fromARGB(217, 244, 67, 54),
+                        color: AppColor.red,
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Align(

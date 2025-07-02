@@ -1,11 +1,10 @@
-const functions = require('firebase-functions');
+const functions = require('firebase-functions/v2');
 const admin = require('firebase-admin');
 const { RtcTokenBuilder, RtcRole } = require("agora-access-token");
 
 admin.initializeApp();
 
-
-exports.checkUserActivity = functions.pubsub.schedule('every 1 minutes').onRun(async (context) => {
+exports.checkUserActivity = functions.scheduler.onSchedule('every 1 minutes', async (event) => {
   const now = admin.firestore.Timestamp.now();
   const fiveMinutesAgo = now.toMillis() - (1 * 60 * 1000);
   const roomsRef = admin.firestore().collection('rooms');
@@ -34,7 +33,6 @@ exports.checkUserActivity = functions.pubsub.schedule('every 1 minutes').onRun(a
               }))
               .then(() => {
                 console.log(`User ${userId} removed from participants list of room ${roomId}`);
-                // Check if the room should be deleted (for example, if there are no more users)
                 return usersRef.get();
               })
               .then(updatedUsersSnapshot => {
@@ -61,10 +59,10 @@ exports.checkUserActivity = functions.pubsub.schedule('every 1 minutes').onRun(a
   }
 });
 
+const APP_ID = "36876abda2bf48e2a2ed324ebac196c4";
+const APP_CERTIFICATE = "d592795125d04b369a8e69547f047be6";
 
-const APP_ID = "c06e288932ee4219a255f2e749454369";
-const APP_CERTIFICATE = "dacf1c546f0b4e14ad79900557a2ad02";
-exports.generateAgoraToken = functions.https.onCall((data, context) => {
+exports.generateAgoraToken = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError(
       'unauthenticated',
