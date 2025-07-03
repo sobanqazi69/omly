@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <rect width="100" height="100" fill="#FFF8E1"/>
+  <text x="50" y="55" text-anchor="middle" font-size="14" font-family="Arial" fill="#FF8F00">🎁</text>
+  <text x="50" y="75" text-anchor="middle" font-size="8" font-family="Arial" fill="#424242">Surprise Box</text>
+</svg>

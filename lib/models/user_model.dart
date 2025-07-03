@@ -5,6 +5,7 @@ class UserModel {
   String role;
   String username;
   String image;
+  int coins;
 
   UserModel({
     required this.userId,
@@ -13,6 +14,7 @@ class UserModel {
     required this.name,
     required this.role,
     required this.username,
+    this.coins = 0,
   });
 
   factory UserModel.fromMap(Map<String, dynamic> data) {
@@ -23,6 +25,7 @@ class UserModel {
       role: data['role'] ?? '',
        image: data['image'] ?? '',
       username: data['username'] ?? '',
+      coins: data['coins'] ?? 0,
     );
   }
 
@@ -33,7 +36,8 @@ class UserModel {
       'name': name,
       'role': role,
       'username': username,
-      'image': image
+      'image': image,
+      'coins': coins
     };
   }
 }

@@ -27,21 +27,29 @@ class UsersRoomsList extends StatelessWidget {
               itemCount: rooms.length,
               itemBuilder: (context, index) {
                 final room = rooms[index];
-                final roomName = room['roomName'];
-                final roomId = room['roomId'];
-                final description = room['description'];
+                final roomName = room['roomName'] ?? 'Unknown Room';
+                final roomId = room['roomId'] ?? '';
+                final description = room['description'] ?? 'No description';
                 final createdAt = room['createdAt']?.toDate();
-                final interests = room['interests'];
-                final participants = room['participants'];
-                final channelId = room['channelId'];
+                final interests = room['interests'] ?? [];
+                final participants = room['participants'] ?? [];
+                final channelId = room['channelId'] ?? '';
                 final participantsCount = participants.length;
 
                 return InkWell(
                   onTap: () async {
-                    User? user = FirebaseAuth.instance.currentUser;
-                    if (user != null) {
-                      await joinRoom(
-                          roomName, user.uid, context, description, roomId, channelId);
+                    try {
+                      User? user = FirebaseAuth.instance.currentUser;
+                      if (user != null && roomId.isNotEmpty && channelId.isNotEmpty) {
+                        await joinRoom(
+                            roomName, user.uid, context, description, roomId, channelId);
+                      } else {
+                        print('Invalid room data: roomId=$roomId, channelId=$channelId');
+                        Get.snackbar('Error', 'Unable to join room - invalid room data');
+                      }
+                    } catch (e) {
+                      print('Error joining room: $e');
+                      Get.snackbar('Error', 'Failed to join room');
                     }
                   },
                   child: Padding(
@@ -105,7 +113,7 @@ class UsersRoomsList extends StatelessWidget {
                                   children: interests.map<Widget>((interest) {
                                     return Chip(
                                       label: Text(
-                                        '#' + interest,
+                                        '#' + (interest?.toString() ?? 'tag'),
                                         style: style(
                                             family: AppFonts.gMedium, size: 18),
                                       ),

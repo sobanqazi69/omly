@@ -48,7 +48,8 @@ class AuthService {
           'role': 'Participant',
           'name': user.displayName,
           'userId': user.uid,
-          'image': user.photoURL
+          'image': user.photoURL,
+          'coins': 1000  // Give new users 1000 starter coins
         };
         await DatabaseServices().saveUserData(userDataToSave);
         DocumentSnapshot userDoc = await DatabaseServices().getUserData(user.uid);

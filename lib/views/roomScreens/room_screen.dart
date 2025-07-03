@@ -7,9 +7,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:live_13/constants/selected_tags.dart';
 import 'package:live_13/controller/mic_controller.dart';
+import 'package:live_13/controller/gift_controller.dart';
+import 'package:live_13/controller/wallet_controller.dart';
 import 'package:live_13/models/user_model.dart';
 import 'package:live_13/services/agora_token_service.dart';
 import 'package:live_13/services/speak_user_request.dart';
@@ -25,7 +28,20 @@ import 'package:live_13/services/leaving_room.dart';
 const appId =
     "f0ac4696784a47baa71c64381cabbacd"; // Replace with your actual Agora App ID
 
-const reactions = ['laugh', 'cry', 'thumbs_up'];
+const gifts = [
+  {'name': 'Cake', 'asset': 'assets/gifts/cake.svg', 'cost': 100},
+  {'name': 'Castle', 'asset': 'assets/gifts/castle.svg', 'cost': 500},
+  {'name': 'Cat', 'asset': 'assets/gifts/cat.svg', 'cost': 150},
+  {'name': 'Crown', 'asset': 'assets/gifts/crown.svg', 'cost': 1000},
+  {'name': 'Galaxy Gift', 'asset': 'assets/gifts/galaxy_gift.svg', 'cost': 2000},
+  {'name': 'Heart', 'asset': 'assets/gifts/heart.svg', 'cost': 200},
+  {'name': 'Magic Show', 'asset': 'assets/gifts/magic_show.svg', 'cost': 800},
+  {'name': 'Plane', 'asset': 'assets/gifts/plane.svg', 'cost': 1500},
+  {'name': 'Ring', 'asset': 'assets/gifts/ring.svg', 'cost': 3000},
+  {'name': 'Rose', 'asset': 'assets/gifts/rose.svg', 'cost': 300},
+  {'name': 'Surprise Box', 'asset': 'assets/gifts/surprise_box.svg', 'cost': 400},
+  {'name': 'Yacht', 'asset': 'assets/gifts/yacht.svg', 'cost': 5000},
+];
 
 class RoomScreen extends StatefulWidget {
   final String roomName;
@@ -46,6 +62,8 @@ class RoomScreen extends StatefulWidget {
 
 class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver {
     final MicController micController = Get.put(MicController());
+    final GiftController giftController = Get.put(GiftController());
+    final WalletController walletController = Get.put(WalletController());
 
   
   Map<int, bool> mutedUsers = {};
@@ -72,7 +90,8 @@ class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver {
  uId = generateUnique15DigitInteger();
  storeUid ();
 
- 
+ // Initialize gift listener
+ giftController.initializeGiftListener(widget.roomId);
 
   }
 
@@ -556,46 +575,90 @@ Future<void> _blockUser(String userId) async {
 }
 
 
-  void _sendReaction(String reaction) async {
-    String userId = FirebaseAuth.instance.currentUser!.uid;
-    await firestore
-        .collection('rooms')
-        .doc(widget.roomId)
-        .collection('joinedUsers')
-        .doc(userId)
-        .update({'latestReaction': reaction});
-
-    // Clear the reaction after 1 second
-    Future.delayed(Duration(seconds: 2), () {
-      firestore
-          .collection('rooms')
-          .doc(widget.roomId)
-          .collection('joinedUsers')
-          .doc(userId)
-          .update({'latestReaction': FieldValue.delete()});
-    });
+  void _sendGift(String giftName, String giftAsset, int giftCost) async {
+    await giftController.sendGift(giftName, giftAsset, widget.roomId, giftCost);
   }
 
-  void _showReactionsBottomSheet() {
+  void _showGiftsBottomSheet() {
     showModalBottomSheet(
       context: context,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) => Padding(
+      builder: (context) => Container(
+        height: 400,
         padding: const EdgeInsets.all(16.0),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: reactions.map((reaction) {
-            return ListTile(
-              leading: _getReactionIcon(reaction),
-              title: Text(reaction),
-              onTap: () {
-                _sendReaction(reaction);
-                Navigator.pop(context);
-              },
-            );
-          }).toList(),
+          children: [
+            Text(
+              "Send a Gift",
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 10),
+            Expanded(
+              child: GridView.builder(
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 4,
+                  mainAxisSpacing: 10.0,
+                  crossAxisSpacing: 10.0,
+                ),
+                itemCount: gifts.length,
+                itemBuilder: (context, index) {
+                  var gift = gifts[index];
+                  return InkWell(
+                    onTap: () {
+                      _sendGift(
+                        gift['name'] as String, 
+                        gift['asset'] as String,
+                        gift['cost'] as int,
+                      );
+                      Navigator.pop(context);
+                    },
+                    child: Column(
+                      children: [
+                        Container(
+                          width: 50,
+                          height: 50,
+                          child: SvgPicture.asset(
+                            gift['asset'] as String,
+                            fit: BoxFit.contain,
+                            placeholderBuilder: (context) => Container(
+                              width: 50,
+                              height: 50,
+                              decoration: BoxDecoration(
+                                color: Colors.grey[300],
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Icon(
+                                Icons.card_giftcard,
+                                size: 30,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: 5),
+                        Text(
+                          gift['name'] as String,
+                          style: TextStyle(fontSize: 9),
+                          textAlign: TextAlign.center,
+                        ),
+                        Text(
+                          '${gift['cost']} coins',
+                          style: TextStyle(
+                            fontSize: 8,
+                            color: AppColor.red,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -634,44 +697,84 @@ void navigateToUserScreen() {
     context,
     MaterialPageRoute(builder: (context) => UserScreen()),
   );
-  Get.snackbar('Oops', 'You Have Been Kicked By The Admin');
+  // Get.snackbar('Oops', 'You Have Been Kicked By The Admin');
 }
 
-  Widget _getReactionIcon(String reaction) {
-    switch (reaction) {
-      case 'laugh':
-        return AnimatedEmoji(
-          AnimatedEmojis.laughing,
-          size: 68,
-          animate: true,
-          repeat: true,
-        );
-      // return Icon(
-      //   Icons.emoji_emotions,
-      //   color: Colors.yellow,
-      //   size: 30,
-      // );
-      case 'cry':
-        return AnimatedEmoji(
-          AnimatedEmojis.cry,
-          size: 65,
-          animate: true,
-          repeat: true,
-        );
-      case 'thumbs_up':
-        return AnimatedEmoji(
-          AnimatedEmojis.thumbsUp,
-          size: 65,
-          animate: true,
-          repeat: true,
-        );
-      default:
-        return Icon(
-          Icons.emoji_emotions,
-          color: Colors.yellow,
-          size: 30,
-        );
-    }
+  Widget _buildGiftOverlay() {
+    return Obx(() {
+      if (!giftController.showGiftOverlay.value || giftController.currentGift.value == null) {
+        return SizedBox();
+      }
+
+      return Positioned.fill(
+        child: Container(
+          color: Colors.black54,
+          child: Center(
+            child: TweenAnimationBuilder<double>(
+              duration: Duration(seconds: 2),
+              tween: Tween(begin: 0.0, end: 1.0),
+              builder: (context, value, child) {
+                return Transform.scale(
+                  scale: 0.3 + (value * 1.2), // Scale from 0.3 to 1.5
+                  child: Opacity(
+                    opacity: value > 0.75 ? (1.0 - ((value - 0.75) * 4)) : 1.0, // Fade out in last 25%
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 200,
+                          height: 200,
+                          child: SvgPicture.asset(
+                            giftController.currentGift.value!,
+                            fit: BoxFit.contain,
+                            placeholderBuilder: (context) => Container(
+                              width: 200,
+                              height: 200,
+                              decoration: BoxDecoration(
+                                color: Colors.grey[300],
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Icon(
+                                Icons.card_giftcard,
+                                size: 80,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: 20),
+                        Container(
+                          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: Colors.black54,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            'Gift from ${giftController.giftSenderName.value ?? "Someone"}',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              shadows: [
+                                Shadow(
+                                  offset: Offset(2, 2),
+                                  blurRadius: 4,
+                                  color: Colors.black,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      );
+    });
   }
 
   @override
@@ -679,8 +782,9 @@ void navigateToUserScreen() {
     String userId = FirebaseAuth.instance.currentUser!.uid;
     return Scaffold(
       backgroundColor: AppColor.white,
-     
-      body: Padding(
+      body: Stack(
+        children: [
+          Padding(
         padding: const EdgeInsets.all(10.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.start,
@@ -784,11 +888,6 @@ void navigateToUserScreen() {
                           var userName = userDoc['username'];
                           var userImage = userDoc['image'];
                           var userRole = userDoc['role'];
-                          var data = userDoc.data() as Map<String, dynamic>?;
-                          var latestReaction =
-                              data != null && data.containsKey('latestReaction')
-                                  ? data['latestReaction']
-                                  : null;
 
                           return Column(
                             children: [
@@ -797,23 +896,11 @@ void navigateToUserScreen() {
                                  (userRole=='Admin')? SizedBox(): showOptionsBottomSheet(
                                       context, userDoc.id, userRole);
                                 },
-                                child: Stack(
-                                  children: [
-                                    Center(
-                                      child: CircleAvatar(
-                                        radius: 30,
-                                        backgroundImage:
-                                            NetworkImage(userImage),
-                                        child: (latestReaction != null)
-                                            ? _getReactionIcon(latestReaction)
-                                            : SizedBox(),
-                                      ),
-                                    ),
-                                    // if (latestReaction != null)
-                                    //   Center(
-                                    //       child:
-                                    //           _getReactionIcon(latestReaction)),
-                                  ],
+                                child: Center(
+                                  child: CircleAvatar(
+                                    radius: 30,
+                                    backgroundImage: NetworkImage(userImage),
+                                  ),
                                 ),
                               ),
                               SizedBox(height: space2),
@@ -871,23 +958,54 @@ void navigateToUserScreen() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        InkWell(
-          onTap: () {
-            _showReactionsBottomSheet();
-          },
-          child: Container(
-            padding: EdgeInsets.all(10),
-            decoration: BoxDecoration(
-                border: Border.all(
-                  color: AppColor.black,
+        Column(
+          children: [
+            InkWell(
+              onTap: () {
+                _showGiftsBottomSheet();
+              },
+              child: Container(
+                padding: EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                    border: Border.all(
+                      color: AppColor.black,
+                    ),
+                    shape: BoxShape.circle,
+                    color: const Color.fromARGB(140, 158, 158, 158)),
+                child: Icon(
+                  Icons.card_giftcard,
+                  size: 25,
                 ),
-                shape: BoxShape.circle,
-                color: const Color.fromARGB(140, 158, 158, 158)),
-            child: Icon(
-              Icons.emoji_emotions,
-              size: 25,
+              ),
             ),
-          ),
+            SizedBox(height: 4),
+            Obx(() => Container(
+              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppColor.red,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.monetization_on,
+                    color: AppColor.white,
+                    size: 14,
+                  ),
+                  SizedBox(width: 2),
+                  Text(
+                    walletController.formatCoins(walletController.userCoins.value),
+                    style: style(
+                      family: AppFonts.gBold,
+                      size: 12,
+                      clr: AppColor.white,
+                    ),
+                  ),
+                ],
+              ),
+            )),
+          ],
         ),
        Align(
         alignment: Alignment.bottomCenter,
@@ -944,6 +1062,11 @@ void navigateToUserScreen() {
           ],
         ),
       ),
+
+      // Gift overlay
+      _buildGiftOverlay(),
+    ],
+  ),
     );
   }
 }

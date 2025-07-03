@@ -10,7 +10,7 @@ import 'package:live_13/models/user_model.dart';
 import 'package:live_13/navigations/navigator.dart';
 import 'package:live_13/services/auth_service.dart';
 import 'package:live_13/views/editProfile/edit_profile.dart';
-import 'package:live_13/widgets/rool_list.dart';
+import 'package:live_13/widgets/room_list.dart';
 import 'package:live_13/widgets/dialog_alert.dart';
 
 class AdminScreen extends StatefulWidget {

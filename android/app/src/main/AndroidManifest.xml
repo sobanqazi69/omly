@@ -8,7 +8,7 @@
     <uses-sdk tools:overrideLibrary="xyz.canardoux.fluttersound,com.google.firebase.auth" />
 
     <application
-        android:label="LitChat"
+        android:label="Omly"
         android:name="${applicationName}"
         android:enableOnBackInvokedCallback="true"
         android:icon="@mipmap/launcher_icon">
