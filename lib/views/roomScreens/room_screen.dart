@@ -1215,13 +1215,255 @@ Future<void> _kickFromRoom(String userId) async {
 }
 
 
-void navigateToUserScreen() {
-  Navigator.pushReplacement(
-    context,
-    MaterialPageRoute(builder: (context) => UserScreen()),
-  );
-  // Get.snackbar('Oops', 'You Have Been Kicked By The Admin');
-}
+  void navigateToUserScreen() {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => UserScreen()),
+    );
+    // Get.snackbar('Oops', 'You Have Been Kicked By The Admin');
+  }
+
+  Future<void> _requestSeatChange(int targetSeatNumber) async {
+    try {
+      String userId = FirebaseAuth.instance.currentUser!.uid;
+      
+      // Check if user is currently seated (Admin or Moderator)
+      DocumentSnapshot userDoc = await firestore
+          .collection('rooms')
+          .doc(widget.roomId)
+          .collection('joinedUsers')
+          .doc(userId)
+          .get();
+      
+      if (!userDoc.exists) {
+        Get.snackbar(
+          'Error',
+          'User not found in room',
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+        );
+        return;
+      }
+      
+      String userRole = userDoc['role'] ?? 'Participant';
+      
+      // Only allow Admin and Moderator to change seats
+      if (userRole != 'Admin' && userRole != 'Moderator') {
+        Get.snackbar(
+          'Not Allowed',
+          'Only speakers can change seats',
+          backgroundColor: Colors.orange,
+          colorText: Colors.white,
+        );
+        return;
+      }
+      
+      // Update user's seat position
+      await firestore
+          .collection('rooms')
+          .doc(widget.roomId)
+          .collection('joinedUsers')
+          .doc(userId)
+          .update({
+            'seatPosition': targetSeatNumber,
+            'seatChangedAt': FieldValue.serverTimestamp(),
+          });
+      
+      Get.snackbar(
+        'Seat Changed',
+        'Moved to seat #$targetSeatNumber',
+        backgroundColor: Colors.green,
+        colorText: Colors.white,
+        duration: Duration(seconds: 1),
+      );
+      
+      print('User $userId moved to seat $targetSeatNumber');
+      
+    } catch (e) {
+      print('Error changing seat: $e');
+      Get.snackbar(
+        'Error',
+        'Failed to change seat',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+    }
+  }
+
+  void _minimizeRoom() {
+    try {
+      // Create minimized room overlay BEFORE navigating
+      _createMinimizedRoomOverlay();
+      
+      // Navigate to user screen WITHOUT disposing the current room
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => UserScreen(),
+          settings: RouteSettings(name: '/user_from_room'),
+        ),
+      );
+      
+      // Show a snackbar to confirm the room is minimized
+      Get.snackbar(
+        'Room Minimized',
+        'You\'re still connected to voice • Tap floating widget to return',
+        backgroundColor: Colors.blue,
+        colorText: Colors.white,
+        duration: Duration(seconds: 3),
+        snackPosition: SnackPosition.TOP,
+      );
+      
+      print('Room minimized - staying connected to channel: ${widget.channelId}');
+    } catch (e) {
+      print('Error minimizing room: $e');
+      // Fallback: navigate to user screen
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => UserScreen()),
+      );
+    }
+  }
+
+    Future<void> _disconnectAndLeaveRoom() async {
+    try {
+      // Get current user ID
+      String userId = FirebaseAuth.instance.currentUser!.uid;
+      
+      // Disconnect from Agora channel completely
+      await _engine.leaveChannel();
+      await _engine.release();
+      
+      // Cancel the timestamp timer
+      _timer?.cancel();
+      
+      // Leave room in Firestore
+      await leaveRoom(userId, context, widget.roomId, user!.role);
+      
+      print('Successfully disconnected from room: ${widget.roomId}');
+    } catch (e) {
+      print('Error disconnecting from room: $e');
+      rethrow;
+    }
+  }
+
+  void _createMinimizedRoomOverlay() async {
+    try {
+      // Get room owner's profile picture
+      DocumentSnapshot roomDoc = await firestore
+          .collection('rooms')
+          .doc(widget.roomId)
+          .get();
+      
+      String? ownerImage;
+      if (roomDoc.exists) {
+        String? ownerId = (roomDoc.data() as Map<String, dynamic>?)?['admin'] as String?;
+        if (ownerId != null) {
+          DocumentSnapshot ownerDoc = await firestore
+              .collection('rooms')
+              .doc(widget.roomId)
+              .collection('joinedUsers')
+              .doc(ownerId)
+              .get();
+          
+          if (ownerDoc.exists) {
+            ownerImage = (ownerDoc.data() as Map<String, dynamic>?)?['image'] as String?;
+          }
+        }
+      }
+
+      // Store room data for rejoining
+      final roomData = {
+        'roomName': widget.roomName,
+        'roomDesc': widget.roomDesc,
+        'roomId': widget.roomId,
+        'channelId': widget.channelId,
+      };
+
+      // Create overlay entry
+      final overlay = Overlay.of(context);
+      OverlayEntry? overlayEntry;
+
+      overlayEntry = OverlayEntry(
+        builder: (context) => MinimizedRoomWidget(
+          roomName: widget.roomName,
+          roomId: widget.roomId,
+          ownerImage: ownerImage,
+          onTap: () {
+            // Remove overlay
+            overlayEntry?.remove();
+            
+            // Navigate back to the existing room (pop back to it)
+            Navigator.of(context).popUntil((route) {
+              return route.settings.name == '/room' || 
+                     route.isFirst ||
+                     (route.settings.arguments != null && 
+                      route.settings.arguments is Map &&
+                      (route.settings.arguments as Map)['roomId'] == roomData['roomId']);
+            });
+            
+            // If we couldn't find the existing room, create a new one
+            if (Navigator.of(context).canPop()) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => RoomScreen(
+                    roomName: roomData['roomName']!,
+                    roomDesc: roomData['roomDesc']!,
+                    roomId: roomData['roomId']!,
+                    channelId: roomData['channelId']!,
+                  ),
+                  settings: RouteSettings(
+                    name: '/room',
+                    arguments: {'roomId': roomData['roomId']},
+                  ),
+                ),
+              );
+            }
+          },
+          onClose: () async {
+            try {
+              // Remove overlay first
+              overlayEntry?.remove();
+              
+              // Disconnect completely from the room
+              await _disconnectAndLeaveRoom();
+              
+              // Navigate back to user screen and clear room from stack
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (context) => UserScreen()),
+                (route) => false,
+              );
+              
+              // Show confirmation
+              Get.snackbar(
+                'Disconnected',
+                'You have left the room completely',
+                backgroundColor: Colors.orange,
+                colorText: Colors.white,
+                duration: Duration(seconds: 2),
+                snackPosition: SnackPosition.TOP,
+              );
+              
+            } catch (e) {
+              print('Error disconnecting from room: $e');
+              // Fallback: remove overlay and navigate
+              overlayEntry?.remove();
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (context) => UserScreen()),
+                (route) => false,
+              );
+            }
+          },
+        ),
+      );
+
+      // Insert overlay
+      overlay.insert(overlayEntry);
+    } catch (e) {
+      print('Error creating minimized overlay: $e');
+    }
+  }
 
   Widget _buildGiftOverlay() {
     return Obx(() {
@@ -1452,26 +1694,31 @@ void navigateToUserScreen() {
         children: [
           Row(
             children: [
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.black26,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.keyboard_arrow_down, color: Colors.white, size: 16),
-                    SizedBox(width: 6),
-                    Text(
-                      'Minimize',
-                      style: style(
-                        family: AppFonts.gMedium,
-                        size: 14,
-                        clr: Colors.white,
+              InkWell(
+                onTap: () {
+                  _minimizeRoom();
+                },
+                child: Container(
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.black26,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.keyboard_arrow_down, color: Colors.white, size: 16),
+                      SizedBox(width: 6),
+                      Text(
+                        'Minimize',
+                        style: style(
+                          family: AppFonts.gMedium,
+                          size: 14,
+                          clr: Colors.white,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
               SizedBox(width: 8),
@@ -1864,6 +2111,39 @@ void navigateToUserScreen() {
   }
 
   Widget _buildSpeakingSeats(List<QueryDocumentSnapshot> speakers, String? roomOwnerId) {
+    // Create a map to track which seats are occupied
+    Map<int, QueryDocumentSnapshot> seatMap = {};
+    
+    // Assign speakers to their preferred seats or auto-assign
+    for (int i = 0; i < speakers.length; i++) {
+      var speaker = speakers[i];
+      var data = speaker.data() as Map<String, dynamic>;
+      int? preferredSeat = data['seatPosition'] as int?;
+      
+      if (preferredSeat != null && preferredSeat >= 1 && preferredSeat <= 40) {
+        // Check if preferred seat is available
+        if (!seatMap.containsKey(preferredSeat)) {
+          seatMap[preferredSeat] = speaker;
+        } else {
+          // Preferred seat taken, find next available
+          for (int j = 1; j <= 40; j++) {
+            if (!seatMap.containsKey(j)) {
+              seatMap[j] = speaker;
+              break;
+            }
+          }
+        }
+      } else {
+        // No preferred seat, auto-assign to first available
+        for (int j = 1; j <= 40; j++) {
+          if (!seatMap.containsKey(j)) {
+            seatMap[j] = speaker;
+            break;
+          }
+        }
+      }
+    }
+    
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 8),
       child: GridView.builder(
@@ -1875,13 +2155,15 @@ void navigateToUserScreen() {
         ),
         itemCount: 40, // Fixed 40 seats
         itemBuilder: (context, index) {
-          if (index < speakers.length) {
+          int seatNumber = index + 1;
+          
+          if (seatMap.containsKey(seatNumber)) {
             // Occupied seat with speaker
-            var speaker = speakers[index];
-            return _buildOccupiedSpeakerSeat(speaker, index + 1, roomOwnerId);
+            var speaker = seatMap[seatNumber]!;
+            return _buildOccupiedSpeakerSeat(speaker, seatNumber, roomOwnerId);
           } else {
             // Empty seat
-            return _buildEmptySeat(index + 1);
+            return _buildEmptySeat(seatNumber);
           }
         },
       ),
@@ -2081,38 +2363,43 @@ void navigateToUserScreen() {
   }
 
   Widget _buildEmptySeat(int seatNumber) {
-    return Column(
-      children: [
-        Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: Colors.black38,
-            border: Border.all(color: Colors.white30, width: 2),
-          ),
-          child: Icon(
-            Icons.person,
-            size: 20,
-            color: Colors.white30,
-          ),
-        ),
-        SizedBox(height: 2),
-        Container(
-          height: 12,
-          child: Text(
-            'No.$seatNumber',
-            style: style(
-              family: AppFonts.gMedium,
-              size: 7,
-              clr: Colors.white70,
+    return InkWell(
+      onTap: () {
+        _requestSeatChange(seatNumber);
+      },
+      child: Column(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.black38,
+              border: Border.all(color: Colors.white30, width: 2),
             ),
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+            child: Icon(
+              Icons.person_add,
+              size: 20,
+              color: Colors.white30,
+            ),
           ),
-        ),
-      ],
+          SizedBox(height: 2),
+          Container(
+            height: 12,
+            child: Text(
+              'No.$seatNumber',
+              style: style(
+                family: AppFonts.gMedium,
+                size: 7,
+                clr: Colors.white70,
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -2494,5 +2781,210 @@ void navigateToUserScreen() {
     } catch (e) {
       print('Error showing user management: $e');
     }
+  }
+}
+
+class MinimizedRoomWidget extends StatefulWidget {
+  final String roomName;
+  final String roomId;
+  final String? ownerImage;
+  final VoidCallback onTap;
+  final VoidCallback onClose;
+
+  const MinimizedRoomWidget({
+    Key? key,
+    required this.roomName,
+    required this.roomId,
+    this.ownerImage,
+    required this.onTap,
+    required this.onClose,
+  }) : super(key: key);
+
+  @override
+  State<MinimizedRoomWidget> createState() => _MinimizedRoomWidgetState();
+}
+
+class _MinimizedRoomWidgetState extends State<MinimizedRoomWidget> {
+  double _x = 20.0;
+  double _y = 100.0;
+  bool _isDragging = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Set initial position within safe bounds
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _ensureWithinBounds();
+    });
+  }
+
+  void _ensureWithinBounds() {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+    final safeArea = MediaQuery.of(context).padding;
+    
+    // Widget dimensions
+    const widgetWidth = 200.0;
+    const widgetHeight = 60.0;
+    
+    setState(() {
+      // Ensure within horizontal bounds
+      if (_x < 10) _x = 10;
+      if (_x > screenWidth - widgetWidth - 10) _x = screenWidth - widgetWidth - 10;
+      
+      // Ensure within vertical bounds (considering safe area)
+      if (_y < safeArea.top + 10) _y = safeArea.top + 10;
+      if (_y > screenHeight - safeArea.bottom - widgetHeight - 10) {
+        _y = screenHeight - safeArea.bottom - widgetHeight - 10;
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      left: _x,
+      top: _y,
+      child: AnimatedScale(
+        scale: _isDragging ? 1.1 : 1.0,
+        duration: Duration(milliseconds: 200),
+        child: Draggable(
+          feedback: _buildFloatingWidget(),
+          childWhenDragging: Opacity(
+            opacity: 0.5,
+            child: _buildFloatingWidget(),
+          ),
+          onDragEnd: (details) {
+            setState(() {
+              _x = details.offset.dx;
+              _y = details.offset.dy;
+              _isDragging = false;
+            });
+            _ensureWithinBounds();
+          },
+          onDragStarted: () {
+            setState(() {
+              _isDragging = true;
+            });
+          },
+          child: _buildFloatingWidget(),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFloatingWidget() {
+    return GestureDetector(
+      onTap: widget.onTap,
+      child: Container(
+        width: 200,
+        height: 60,
+        decoration: BoxDecoration(
+          color: AppColor.red,
+          borderRadius: BorderRadius.circular(30),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black26,
+              blurRadius: 10,
+              offset: Offset(0, 5),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            // Owner's profile picture or room icon
+            Container(
+              width: 50,
+              height: 50,
+              margin: EdgeInsets.all(5),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white,
+                  width: 2,
+                ),
+              ),
+              child: widget.ownerImage != null
+                  ? ClipOval(
+                      child: Image.network(
+                        widget.ownerImage!,
+                        width: 46,
+                        height: 46,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Icon(
+                            Icons.group,
+                            color: Colors.white,
+                            size: 24,
+                          );
+                        },
+                      ),
+                    )
+                  : Icon(
+                      Icons.group,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+            ),
+            // Room info with animated text
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.roomName,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  SizedBox(height: 2),
+                  StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance
+                        .collection('rooms')
+                        .doc(widget.roomId)
+                        .collection('joinedUsers')
+                        .snapshots(),
+                    builder: (context, snapshot) {
+                      int userCount = snapshot.hasData ? snapshot.data!.docs.length : 0;
+                      return Text(
+                        '$userCount users • Tap to rejoin',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontSize: 10,
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+            // Close button
+            GestureDetector(
+              onTap: widget.onClose,
+              child: Container(
+                width: 20,
+                height: 20,
+                margin: EdgeInsets.only(right: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.3),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.close,
+                  color: Colors.white,
+                  size: 14,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
