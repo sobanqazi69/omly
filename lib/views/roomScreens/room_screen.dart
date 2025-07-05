@@ -1887,7 +1887,7 @@ Future<void> _kickFromRoom(String userId) async {
         ),
         SizedBox(height: 8),
         Text(
-          'Group Owner',
+          widget.roomName,
           style: style(
             family: AppFonts.gBold,
             size: 16,

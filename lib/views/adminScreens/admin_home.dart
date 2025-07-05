@@ -10,6 +10,7 @@ import 'package:live_13/models/user_model.dart';
 import 'package:live_13/navigations/navigator.dart';
 import 'package:live_13/services/auth_service.dart';
 import 'package:live_13/views/editProfile/edit_profile.dart';
+import 'package:live_13/views/wallet/wallet_screen.dart';
 import 'package:live_13/widgets/room_list.dart';
 import 'package:live_13/widgets/dialog_alert.dart';
 
@@ -46,6 +47,15 @@ class _AdminScreenState extends State<AdminScreen> {
               },
               icon: Icon(Icons.logout)),
         actions: [
+      
+          IconButton(
+            onPressed: () => Get.to(() => WalletScreen()),
+            icon: Icon(
+              Icons.account_balance_wallet,
+              color: AppColor.white,
+              size: 24,
+            ),
+          ),
                     Center(child: Text(userr?.username ?? user!.displayName ?? 'Unknow User' , style: TextStyle(fontFamily: AppFonts.gMedium , fontSize: 16, letterSpacing: 1),)),
 SizedBox(width: space10,),
 InkWell(
