@@ -1,45 +1,36 @@
 {
   "project_info": {
-    "project_number": "304131835356",
-    "project_id": "litchat-6a671",
-    "storage_bucket": "litchat-6a671.firebasestorage.app"
+    "project_number": "718109258397",
+    "project_id": "omly-chat",
+    "storage_bucket": "omly-chat.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:304131835356:android:8be422b09062acc29cfb19",
+        "mobilesdk_app_id": "1:718109258397:android:d884286059417e188d9a74",
         "android_client_info": {
-          "package_name": "com.litchat.app"
+          "package_name": "com.omly.app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "718109258397-hfnl6es12pb1agglkb6ums1vvauavfio.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
-          "current_key": "AIzaSyAmbbncKW2NSKfTH9OoieyMFlB5lFF2ZHM"
+          "current_key": "AIzaSyChdprE1d0lzQAd2apA9TjI5cc5eHWU1p0"
         }
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
-        }
-      }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:304131835356:android:c79fa763425bcd029cfb19",
-        "android_client_info": {
-          "package_name": "com.live13.live13"
-        }
-      },
-      "oauth_client": [],
-      "api_key": [
-        {
-          "current_key": "AIzaSyAmbbncKW2NSKfTH9OoieyMFlB5lFF2ZHM"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "718109258397-hfnl6es12pb1agglkb6ums1vvauavfio.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

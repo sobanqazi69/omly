@@ -45,7 +45,7 @@ class AuthService {
       if(user!=null){
         Map<String,dynamic> userDataToSave = {
           'email': user.email,
-          'role': 'Participant',
+          'role': 'Admin',
           'name': user.displayName,
           'userId': user.uid,
           'image': user.photoURL,

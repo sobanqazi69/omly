@@ -1,14 +1,17 @@
 import 'dart:async';
 import 'dart:math';
+import 'dart:io';
 import 'package:agora_rtc_engine/agora_rtc_engine.dart';
 import 'package:animated_emoji/emoji.dart';
 import 'package:animated_emoji/emojis.g.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:live_13/constants/selected_tags.dart';
 import 'package:live_13/controller/mic_controller.dart';
 import 'package:live_13/controller/gift_controller.dart';
@@ -60,6 +63,8 @@ class RoomScreen extends StatefulWidget {
   State<RoomScreen> createState() => _RoomScreenState();
 }
 
+
+
 class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver {
     final MicController micController = Get.put(MicController());
     final GiftController giftController = Get.put(GiftController());
@@ -73,11 +78,42 @@ class _RoomScreenState extends State<RoomScreen> with WidgetsBindingObserver {
   Timer? _timer;
 
   FirebaseFirestore firestore = FirebaseFirestore.instance;
+  FirebaseStorage storage = FirebaseStorage.instance;
+  final ImagePicker _picker = ImagePicker();
 
   late RtcEngine _engine = createAgoraRtcEngine();
   bool isMicOn = false;
   String userRole = 'Participant'; // Default role
   int uId = 0;
+  bool isUploadingImage = false;
+  
+  // Predefined colors for room backgrounds
+  final List<Color> predefinedColors = [
+    AppColor.red, // Default app color
+    Colors.purple,
+    Colors.blue,
+    Colors.green,
+    Colors.orange,
+    Colors.pink,
+    Colors.teal,
+    Colors.indigo,
+    Colors.brown,
+    Colors.deepOrange,
+    Colors.cyan,
+    Colors.amber,
+    Colors.lime,
+    Colors.deepPurple,
+    Colors.blueGrey,
+    Colors.black87,
+    Color(0xFF1A1A2E), // Dark blue
+    Color(0xFF16213E), // Navy
+    Color(0xFF0F3460), // Dark blue-grey
+    Color(0xFF533483), // Purple
+    Color(0xFF7209B7), // Magenta
+    Color(0xFF2D1B69), // Royal purple
+    Color(0xFF11698E), // Steel blue
+    Color(0xFF19A7CE), // Sky blue
+  ];
 
   @override
   void initState() {
@@ -480,54 +516,224 @@ void _toggleMic(String userRole) {
     super.dispose();
   }
 
-  void showOptionsBottomSheet(BuildContext context, String userId, String userRole) {
-  if (this.userRole != 'Admin') {
-    return;
-  }
-  showModalBottomSheet(
-    context: context,
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-    ),
-    builder: (context) {
-      return Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-           (userRole == 'Moderator')? ListTile(
-              leading: Icon(Icons.remove_circle_outline),
-              title: Text('Remove from Moderator'),
-              onTap: () {
-                _removeFromModerator(userId);
-                Navigator.pop(context);
-              },
-            ): SizedBox(),
-            ListTile(
-              leading: Icon(Icons.remove_circle),
-              title: Text('Kick from Room'),
-              onTap: () {
-                _kickFromRoom(userId);
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              leading: Icon(Icons.block),
-              title: Text('Block User'),
-              onTap: () {
-                _blockUser(userId);
-                Navigator.pop(context);
-              },
-            ),
-          ],
+  void showOptionsBottomSheet(BuildContext context, String userId, String userRole) async {
+    try {
+      // Get current user's role from Firestore
+      String currentUserId = FirebaseAuth.instance.currentUser!.uid;
+      DocumentSnapshot currentUserDoc = await firestore
+          .collection('rooms')
+          .doc(widget.roomId)
+          .collection('joinedUsers')
+          .doc(currentUserId)
+          .get();
+      
+      // Get room owner ID
+      DocumentSnapshot roomDoc = await firestore
+          .collection('rooms')
+          .doc(widget.roomId)
+          .get();
+      
+      String? roomOwnerId = roomDoc.data() != null 
+          ? (roomDoc.data() as Map<String, dynamic>)['admin'] as String?
+          : null;
+      
+      String currentUserRole = 'Participant';
+      bool isCurrentUserOwner = currentUserId == roomOwnerId;
+      
+      if (currentUserDoc.exists) {
+        currentUserRole = currentUserDoc['role'] ?? 'Participant';
+      }
+      
+      // Don't show options if current user is just a participant (unless they're the owner)
+      if (currentUserRole == 'Participant' && !isCurrentUserOwner) {
+        return;
+      }
+      
+      // Don't show options for yourself
+      if (userId == currentUserId) {
+        return;
+      }
+      
+      bool isTargetOwner = userId == roomOwnerId;
+      
+      showModalBottomSheet(
+        context: context,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
+        builder: (context) {
+          return Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'User Options',
+                  style: style(
+                    family: AppFonts.gBold,
+                    size: 18,
+                  ),
+                ),
+                SizedBox(height: 16),
+                
+                // Role Management Options
+                if ((currentUserRole == 'Admin' || isCurrentUserOwner) && !isTargetOwner) ...[
+                  // Promote/Demote options
+                  if (userRole == 'Participant')
+                    ListTile(
+                      leading: Icon(Icons.admin_panel_settings, color: AppColor.red),
+                      title: Text('Promote to Admin'),
+                      onTap: () {
+                        _promoteToAdmin(userId);
+                        Navigator.pop(context);
+                      },
+                    ),
+                  if (userRole == 'Moderator' && isCurrentUserOwner)
+                    ListTile(
+                      leading: Icon(Icons.admin_panel_settings, color: AppColor.red),
+                      title: Text('Promote to Admin'),
+                      onTap: () {
+                        _promoteToAdmin(userId);
+                        Navigator.pop(context);
+                      },
+                    ),
+                  if (userRole == 'Admin' && isCurrentUserOwner)
+                    ListTile(
+                      leading: Icon(Icons.remove_circle_outline, color: Colors.orange),
+                      title: Text('Demote to Speaker'),
+                      onTap: () {
+                        _demoteToParticipant(userId);
+                        Navigator.pop(context);
+                      },
+                    ),
+                  if (userRole == 'Moderator')
+                    ListTile(
+                      leading: Icon(Icons.mic_off, color: Colors.orange),
+                      title: Text('Remove Speaking Permission'),
+                      onTap: () {
+                        _removeModeratorPermission(userId);
+                        Navigator.pop(context);
+                      },
+                    ),
+                  
+                  // Room Management Options
+                  if (userRole == 'Participant' || userRole == 'Moderator' || (isCurrentUserOwner && userRole == 'Admin'))
+                    ListTile(
+                      leading: Icon(Icons.remove_circle, color: Colors.red),
+                      title: Text('Kick from Room'),
+                      onTap: () {
+                        _kickFromRoom(userId);
+                        Navigator.pop(context);
+                      },
+                    ),
+                  if (userRole == 'Participant' || userRole == 'Moderator' || (isCurrentUserOwner && userRole == 'Admin'))
+                    ListTile(
+                      leading: Icon(Icons.block, color: Colors.red),
+                      title: Text('Block User'),
+                      onTap: () {
+                        _blockUser(userId);
+                        Navigator.pop(context);
+                      },
+                    ),
+                ],
+                
+                SizedBox(height: 8),
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                  },
+                  child: Text('Cancel'),
+                ),
+              ],
+            ),
+          );
+        },
       );
-    },
-  );
-}
+    } catch (e) {
+      print('Error showing options: $e');
+    }
+  }
 
 
-Future<void> _removeFromModerator(String userId) async {
+Future<void> _promoteToAdmin(String userId) async {
+    try {
+      await firestore
+          .collection('rooms')
+          .doc(widget.roomId)
+          .collection('joinedUsers')
+          .doc(userId)
+          .update({'role': 'Admin'});
+      
+      Get.snackbar(
+        'Success',
+        'User promoted to Admin',
+        backgroundColor: Colors.green,
+        colorText: Colors.white,
+      );
+    } catch (e) {
+      print('Error promoting user: $e');
+      Get.snackbar(
+        'Error',
+        'Failed to promote user',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+    }
+  }
+
+  Future<void> _demoteToParticipant(String userId) async {
+    try {
+      await firestore
+          .collection('rooms')
+          .doc(widget.roomId)
+          .collection('joinedUsers')
+          .doc(userId)
+          .update({'role': 'Moderator'}); // Keep speaking permission as Moderator
+      
+      Get.snackbar(
+        'Success',
+        'User demoted to Speaker (kept mic permission)',
+        backgroundColor: Colors.orange,
+        colorText: Colors.white,
+      );
+    } catch (e) {
+      print('Error demoting user: $e');
+      Get.snackbar(
+        'Error',
+        'Failed to demote user',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+    }
+  }
+
+  Future<void> _removeModeratorPermission(String userId) async {
+    try {
+      await firestore
+          .collection('rooms')
+          .doc(widget.roomId)
+          .collection('joinedUsers')
+          .doc(userId)
+          .update({'role': 'Participant'});
+      
+      Get.snackbar(
+        'Success',
+        'Speaking permission removed',
+        backgroundColor: Colors.orange,
+        colorText: Colors.white,
+      );
+    } catch (e) {
+      print('Error removing moderator permission: $e');
+      Get.snackbar(
+        'Error',
+        'Failed to remove speaking permission',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+    }
+  }
+
+  Future<void> _removeFromModerator(String userId) async {
     await firestore
         .collection('rooms')
         .doc(widget.roomId)
@@ -561,7 +767,7 @@ Future<void> _kickFromRoom(String userId) async {
   // Commit the batch operation
   await batch.commit();
 }
-Future<void> _blockUser(String userId) async {
+  Future<void> _blockUser(String userId) async {
   final roomRef = firestore.collection('rooms').doc(widget.roomId);
 
   // Add the user ID to the blockedUsers array
@@ -573,6 +779,323 @@ Future<void> _blockUser(String userId) async {
   // Remove the user document from the joinedUsers subcollection
   
 }
+
+  Future<void> _changeRoomBackground() async {
+    try {
+      // Check if current user is the owner
+      DocumentSnapshot roomDoc = await firestore
+          .collection('rooms')
+          .doc(widget.roomId)
+          .get();
+      
+      String? roomOwnerId = roomDoc.data() != null 
+          ? (roomDoc.data() as Map<String, dynamic>)['admin'] as String?
+          : null;
+      
+      String currentUserId = FirebaseAuth.instance.currentUser!.uid;
+      
+      if (currentUserId != roomOwnerId) {
+        Get.snackbar(
+          'Error',
+          'Only the room owner can change the background',
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+        );
+        return;
+      }
+
+      // Show image picker options
+      showModalBottomSheet(
+        context: context,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (context) {
+          return Container(
+            padding: EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                                 Text(
+                   'Change Room Background',
+                   style: style(
+                     family: AppFonts.gBold,
+                     size: 18,
+                   ),
+                 ),
+                 SizedBox(height: 20),
+                 ListTile(
+                   leading: Icon(Icons.palette, color: AppColor.red),
+                   title: Text('Choose Color'),
+                   onTap: () {
+                     Navigator.pop(context);
+                     _showColorPicker();
+                   },
+                 ),
+                 ListTile(
+                   leading: Icon(Icons.photo_library, color: AppColor.red),
+                   title: Text('Choose from Gallery'),
+                   onTap: () {
+                     Navigator.pop(context);
+                     _pickAndUploadBackground(ImageSource.gallery);
+                   },
+                 ),
+                 ListTile(
+                   leading: Icon(Icons.camera_alt, color: AppColor.red),
+                   title: Text('Take Photo'),
+                   onTap: () {
+                     Navigator.pop(context);
+                     _pickAndUploadBackground(ImageSource.camera);
+                   },
+                 ),
+                 ListTile(
+                   leading: Icon(Icons.restore, color: Colors.orange),
+                   title: Text('Reset to Default'),
+                   onTap: () {
+                     Navigator.pop(context);
+                     _resetRoomBackground();
+                   },
+                 ),
+                SizedBox(height: 10),
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text('Cancel'),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+    } catch (e) {
+      print('Error changing background: $e');
+      Get.snackbar(
+        'Error',
+        'Failed to change background',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+    }
+  }
+
+  Future<void> _pickAndUploadBackground(ImageSource source) async {
+    try {
+      setState(() {
+        isUploadingImage = true;
+      });
+
+      final XFile? image = await _picker.pickImage(
+        source: source,
+        imageQuality: 80,
+        maxWidth: 1920,
+        maxHeight: 1080,
+      );
+
+      if (image == null) {
+        setState(() {
+          isUploadingImage = false;
+        });
+        return;
+      }
+
+      // Upload to Firebase Storage
+      String fileName = 'room_backgrounds/${widget.roomId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      Reference ref = storage.ref().child(fileName);
+      
+      UploadTask uploadTask = ref.putFile(File(image.path));
+      
+      // Show upload progress
+      Get.snackbar(
+        'Uploading',
+        'Uploading background image...',
+        backgroundColor: Colors.blue,
+        colorText: Colors.white,
+        duration: Duration(seconds: 3),
+      );
+
+      TaskSnapshot snapshot = await uploadTask;
+      String downloadURL = await snapshot.ref.getDownloadURL();
+
+      // Update room document with new background
+      await firestore
+          .collection('rooms')
+          .doc(widget.roomId)
+          .update({
+            'backgroundImage': downloadURL,
+            'backgroundColor': FieldValue.delete(), // Remove color when setting image
+          });
+
+      Get.snackbar(
+        'Success',
+        'Room background updated successfully!',
+        backgroundColor: Colors.green,
+        colorText: Colors.white,
+      );
+
+    } catch (e) {
+      print('Error uploading background: $e');
+      Get.snackbar(
+        'Error',
+        'Failed to upload background image',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+    } finally {
+      setState(() {
+        isUploadingImage = false;
+      });
+    }
+  }
+
+  Future<void> _resetRoomBackground() async {
+    try {
+      await firestore
+          .collection('rooms')
+          .doc(widget.roomId)
+          .update({
+            'backgroundImage': FieldValue.delete(),
+            'backgroundColor': FieldValue.delete(),
+          });
+
+      Get.snackbar(
+        'Success',
+        'Room background reset to default',
+        backgroundColor: Colors.green,
+        colorText: Colors.white,
+      );
+    } catch (e) {
+      print('Error resetting background: $e');
+      Get.snackbar(
+        'Error',
+        'Failed to reset background',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+    }
+  }
+
+  void _showColorPicker() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.6,
+          padding: EdgeInsets.all(20),
+          child: Column(
+            children: [
+              Text(
+                'Choose Background Color',
+                style: style(
+                  family: AppFonts.gBold,
+                  size: 18,
+                ),
+              ),
+              SizedBox(height: 20),
+              Expanded(
+                child: GridView.builder(
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 6,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                  ),
+                  itemCount: predefinedColors.length,
+                  itemBuilder: (context, index) {
+                    Color color = predefinedColors[index];
+                    return Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(50),
+                        onTap: () {
+                          Navigator.pop(context);
+                          _setRoomBackgroundColor(color);
+                        },
+                        child: AnimatedContainer(
+                          duration: Duration(milliseconds: 200),
+                          decoration: BoxDecoration(
+                            color: color,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Colors.white,
+                              width: 3,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black26,
+                                blurRadius: 8,
+                                offset: Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: color == AppColor.red
+                              ? Icon(
+                                  Icons.check,
+                                  color: Colors.white,
+                                  size: 20,
+                                )
+                              : null,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              SizedBox(height: 20),
+              Text(
+                'Tap any color to apply it as room background',
+                style: style(
+                  family: AppFonts.gMedium,
+                  size: 14,
+                  clr: Colors.grey[600]!,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: 10),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text('Cancel'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _setRoomBackgroundColor(Color color) async {
+    try {
+      // Store color as hex string
+      String colorHex = '#${color.value.toRadixString(16).substring(2)}';
+
+      await firestore
+          .collection('rooms')
+          .doc(widget.roomId)
+          .update({
+            'backgroundColor': colorHex,
+            'backgroundImage': FieldValue.delete(), // Remove image when setting color
+          });
+
+      Get.snackbar(
+        'Success',
+        'Background color updated!',
+        backgroundColor: color.withOpacity(0.9), // Use the selected color
+        colorText: Colors.white,
+        duration: Duration(seconds: 1), // Very quick notification
+        animationDuration: Duration(milliseconds: 300), // Smooth animation
+      );
+
+    } catch (e) {
+      print('Error setting background color: $e');
+      Get.snackbar(
+        'Error',
+        'Failed to set background color',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+    }
+  }
 
 
   void _sendGift(String giftName, String giftAsset, int giftCost) async {
@@ -781,292 +1304,1195 @@ void navigateToUserScreen() {
   Widget build(BuildContext context) {
     String userId = FirebaseAuth.instance.currentUser!.uid;
     return Scaffold(
-      backgroundColor: AppColor.white,
-      body: Stack(
+      body: StreamBuilder<DocumentSnapshot>(
+        stream: firestore.collection('rooms').doc(widget.roomId).snapshots(),
+        builder: (context, backgroundSnapshot) {
+          String? backgroundImageUrl;
+          String? backgroundColor;
+          
+          if (backgroundSnapshot.hasData && backgroundSnapshot.data!.exists) {
+            var roomData = backgroundSnapshot.data!.data() as Map<String, dynamic>?;
+            backgroundImageUrl = roomData?['backgroundImage'] as String?;
+            backgroundColor = roomData?['backgroundColor'] as String?;
+          }
+
+          // Helper function to convert hex string to Color
+          Color? getColorFromHex(String? hexString) {
+            if (hexString == null) return null;
+            try {
+              return Color(int.parse(hexString.replaceFirst('#', '0xFF')));
+            } catch (e) {
+              return null;
+            }
+          }
+
+          Color? customColor = getColorFromHex(backgroundColor);
+
+          return AnimatedContainer(
+            duration: Duration(milliseconds: 350), // Smooth transition for all users
+            curve: Curves.easeOutCubic,
+            decoration: BoxDecoration(
+              // Priority: Image > Custom Color > Default Gradient
+              image: backgroundImageUrl != null
+                ? DecorationImage(
+                    image: NetworkImage(backgroundImageUrl),
+                    fit: BoxFit.cover,
+                    colorFilter: ColorFilter.mode(
+                      Colors.black.withOpacity(0.3),
+                      BlendMode.darken,
+                    ),
+                  )
+                : null,
+              gradient: backgroundImageUrl == null
+                ? LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      customColor ?? AppColor.red,
+                      (customColor ?? AppColor.red).withOpacity(0.7),
+                    ],
+                  )
+                : null,
+            ),
+            child: SafeArea(
+              child: Stack(
+                children: [
+                  Column(
+                    children: [
+                      // Top Bar
+                      _buildTopBar(),
+                      
+                      // Main Room Content
+                      Expanded(
+                        child: FutureBuilder<DocumentSnapshot?>(
+                          future: _getRoomDocumentt(),
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState == ConnectionState.waiting) {
+                              return Center(child: CircularProgressIndicator(color: Colors.white));
+                            }
+                            if (!snapshot.hasData || snapshot.data == null) {
+                              return Center(child: Text("Room not found", style: TextStyle(color: Colors.white)));
+                            }
+
+                            DocumentSnapshot roomDoc = snapshot.data!;
+                            String roomId = roomDoc.id;
+
+                            return StreamBuilder<DocumentSnapshot>(
+                              stream: FirebaseFirestore.instance
+                                  .collection('rooms')
+                                  .doc(roomId)
+                                  .snapshots(),
+                              builder: (context, roomSnapshot) {
+                                if (roomSnapshot.connectionState == ConnectionState.waiting) {
+                                  return Center(child: CircularProgressIndicator(color: Colors.white));
+                                }
+                                
+                                String? roomOwnerId;
+                                if (roomSnapshot.hasData && roomSnapshot.data!.exists) {
+                                  var roomData = roomSnapshot.data!.data() as Map<String, dynamic>?;
+                                  roomOwnerId = roomData?['admin'] as String?;
+                                }
+
+                                return StreamBuilder<QuerySnapshot>(
+                                  stream: FirebaseFirestore.instance
+                                      .collection('rooms')
+                                      .doc(roomId)
+                                      .collection('joinedUsers')
+                                      .snapshots(),
+                                  builder: (context, snapshot) {
+                                    if (snapshot.connectionState == ConnectionState.waiting) {
+                                      return Center(child: CircularProgressIndicator(color: Colors.white));
+                                    }
+                                    if (!snapshot.hasData) {
+                                      return Center(child: Text("No users in this room", style: TextStyle(color: Colors.white)));
+                                    }
+
+                                    // Check if the current user's document exists
+                                    var userDocExists = snapshot.data!.docs.any((doc) => doc.id == userId);
+
+                                    if (!userDocExists) {
+                                      // If the user's document does not exist, navigate to the user screen
+                                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                                        navigateToUserScreen();
+                                      });
+                                      return SizedBox();
+                                    }
+                                    
+                                    var allUsers = snapshot.data!.docs;
+                                    return _buildRoomLayout(allUsers, roomOwnerId);
+                                  },
+                                );
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                      
+                      // Bottom Bar
+                      _buildBottomBar(userId),
+                    ],
+                  ),
+
+                  // Gift overlay
+                  _buildGiftOverlay(),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildTopBar() {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Padding(
-        padding: const EdgeInsets.all(10.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.start,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(height: space19,),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  mainAxisAlignment: MainAxisAlignment.start,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.roomName,
-                      style: style(family: AppFonts.gBold, size: 30),
-                    ),
-                    SizedBox(height: space4),
-                    Text(
-                      widget.roomDesc,
-                      style: style(family: AppFonts.gMedium, size: 18),
-                    ),
-                  ],
+          Row(
+            children: [
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.black26,
+                  borderRadius: BorderRadius.circular(20),
                 ),
-                Row(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    //  (userRole == 'Admin')? IconButton(
-                    //     onPressed: () async {
-                    //      deleteRoomAndRedirect(context, widget.roomId , userId , userRole);
-                    //     },
-                    //     icon: Icon(Icons.delete)) : SizedBox(),
-                    InkWell(
-                      onTap: () {
-                        // Example usage: Check and delete the room if it has no participants
-                        // leaveRoom(FirebaseAuth.instance.currentUser!.uid,
-                        //     context, widget.roomId, user!.role);
-                        showLeaveConfirmationDialog(context,FirebaseAuth.instance.currentUser!.uid,widget.roomId,user!.role);
-                      },
-                      child: Text(
-                        AppText.Leave,
-                        style: style(
-                            family: AppFonts.gBold,
-                            clr: AppColor.red,
-                            size: 20),
+                    Icon(Icons.keyboard_arrow_down, color: Colors.white, size: 16),
+                    SizedBox(width: 6),
+                    Text(
+                      'Minimize',
+                      style: style(
+                        family: AppFonts.gMedium,
+                        size: 14,
+                        clr: Colors.white,
                       ),
                     ),
                   ],
                 ),
-              ],
+              ),
+              SizedBox(width: 8),
+              // Mic status legend
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.black26,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: Colors.green,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    SizedBox(width: 4),
+                    Icon(Icons.mic, color: Colors.white, size: 12),
+                    SizedBox(width: 6),
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    SizedBox(width: 4),
+                    Icon(Icons.mic_off, color: Colors.white, size: 12),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          InkWell(
+            onTap: () {
+              showLeaveConfirmationDialog(context, FirebaseAuth.instance.currentUser!.uid, widget.roomId, user!.role);
+            },
+            child: Container(
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: Colors.black26,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                'Exit',
+                style: style(
+                  family: AppFonts.gMedium,
+                  size: 14,
+                  clr: Colors.white,
+                ),
+              ),
             ),
-            SizedBox(height: space20),
-            Expanded(
-              child: FutureBuilder<DocumentSnapshot?>(
-                future: _getRoomDocumentt(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return Center(child: CircularProgressIndicator());
-                  }
-                  if (!snapshot.hasData || snapshot.data == null) {
-                    return Center(child: Text("Room not found"));
-                  }
+          ),
+        ],
+      ),
+    );
+  }
 
-                  DocumentSnapshot roomDoc = snapshot.data!;
-                  String roomId = roomDoc.id;
+  Widget _buildRoomLayout(List<QueryDocumentSnapshot> allUsers, String? roomOwnerId) {
+    // Separate users by role - only speakers fill seats
+    var owner = allUsers.where((user) => user.id == roomOwnerId).toList();
+    var admins = allUsers.where((user) => user['role'] == 'Admin' && user.id != roomOwnerId).toList();
+    var moderators = allUsers.where((user) => user['role'] == 'Moderator').toList();
+    // Participants are hidden - don't show in seats
 
-                  return StreamBuilder<QuerySnapshot>(
-  stream: FirebaseFirestore.instance
-      .collection('rooms')
-      .doc(roomId)
-      .collection('joinedUsers')
-      .snapshots(),
-  builder: (context, snapshot) {
-    if (snapshot.connectionState == ConnectionState.waiting) {
-      return Center(child: CircularProgressIndicator());
-    }
-    if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-      return Center(child: Text("No users in this room"));
-    }
+    // Combine admins and moderators for speaking positions
+    var speakers = [...admins, ...moderators];
 
-    // Check if the current user's document exists
-    var userDocExists = snapshot.data!.docs.any((doc) => doc.id == userId);
+    return Column(
+      children: [
+        // Owner Section
+        if (owner.isNotEmpty) _buildOwnerSection(owner.first, roomOwnerId),
+        
+        SizedBox(height: 20),
+        
+        // 40 Seats Grid - Always shown, filled with speakers only
+        Expanded(
+          child: _buildSpeakingSeats(speakers, roomOwnerId),
+        ),
+      ],
+    );
+  }
 
-    if (!userDocExists) {
-      // If the user's document does not exist, navigate to the user screen
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        navigateToUserScreen();
-      });
-      return SizedBox();
-    }
-                      var filteredDocs = snapshot.data!.docs;
-
-                      return GridView.builder(
-                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 3,
-                          // mainAxisSpacing: 1.0,
-                          //crossAxisSpacing: 10.0,
+  Widget _buildOwnerSection(QueryDocumentSnapshot ownerDoc, String? roomOwnerId) {
+    Map<String, dynamic> data = ownerDoc.data() as Map<String, dynamic>;
+    bool isMicOn = data.containsKey('isMicOn') ? (data['isMicOn'] ?? false) : false;
+    
+    return Column(
+      children: [
+        InkWell(
+          onLongPress: () {
+            debugPrint('Owner ID: ${ownerDoc.id}');
+            showOptionsBottomSheet(context, ownerDoc.id, ownerDoc['role']);
+          },
+          child: Stack(
+            children: [
+              AnimatedContainer(
+                duration: Duration(milliseconds: 300),
+                width: 90,
+                height: 90,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: isMicOn ? Colors.green : Colors.white, 
+                    width: 3
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black26,
+                      blurRadius: 15,
+                      offset: Offset(0, 8),
+                    ),
+                    if (isMicOn)
+                      BoxShadow(
+                        color: Colors.green.withOpacity(0.5),
+                        blurRadius: 20,
+                        spreadRadius: 2,
+                      ),
+                  ],
+                ),
+                child: CircleAvatar(
+                  radius: 42,
+                  backgroundImage: NetworkImage(ownerDoc['image']),
+                ),
+              ),
+              // Mic status indicator
+              Positioned(
+                bottom: 0,
+                right: 0,
+                child: AnimatedContainer(
+                  duration: Duration(milliseconds: 300),
+                  padding: EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: isMicOn ? Colors.green : Colors.red,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 2),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black26,
+                        blurRadius: 4,
+                        offset: Offset(0, 2),
+                      ),
+                      if (isMicOn)
+                        BoxShadow(
+                          color: Colors.green.withOpacity(0.7),
+                          blurRadius: 8,
+                          spreadRadius: 1,
                         ),
-                        itemCount: filteredDocs.length,
+                    ],
+                  ),
+                  child: Icon(
+                    isMicOn ? Icons.mic : Icons.mic_off,
+                    color: Colors.white,
+                    size: 16,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        SizedBox(height: 8),
+        Text(
+          'Group Owner',
+          style: style(
+            family: AppFonts.gBold,
+            size: 16,
+            clr: Colors.white,
+          ),
+        ),
+        SizedBox(height: 2),
+        Text(
+          ownerDoc['username'],
+          style: style(
+            family: AppFonts.gMedium,
+            size: 12,
+            clr: Colors.white70,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSpeakingRow(List<QueryDocumentSnapshot> speakers, String? roomOwnerId) {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 30),
+      child: speakers.length <= 2 
+        ? Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // Left speaker
+              if (speakers.length > 0) _buildSpeakerCard(speakers[0], roomOwnerId),
+              
+              // Center user indicator
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColor.red,
+                  border: Border.all(color: Colors.white, width: 2),
+                ),
+                child: Center(
+                  child: Text(
+                    'U',
+                    style: style(
+                      family: AppFonts.gBold,
+                      size: 24,
+                      clr: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+              
+              // Right speaker
+              if (speakers.length > 1) _buildSpeakerCard(speakers[1], roomOwnerId)
+              else Container(width: 60), // Placeholder
+            ],
+          )
+        : Column(
+            children: [
+              // First row with up to 3 speakers
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  if (speakers.length > 0) _buildSpeakerCard(speakers[0], roomOwnerId),
+                  if (speakers.length > 1) _buildSpeakerCard(speakers[1], roomOwnerId),
+                  if (speakers.length > 2) _buildSpeakerCard(speakers[2], roomOwnerId),
+                ],
+              ),
+              if (speakers.length > 3) ...[
+                SizedBox(height: 16),
+                // Second row for additional speakers
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    for (int i = 3; i < speakers.length && i < 6; i++)
+                      _buildSpeakerCard(speakers[i], roomOwnerId),
+                  ],
+                ),
+              ],
+            ],
+          ),
+    );
+  }
+
+  Widget _buildSpeakerCard(QueryDocumentSnapshot speakerDoc, String? roomOwnerId) {
+    String role = speakerDoc['role'];
+    String displayRole = role == 'Moderator' ? 'Speaker' : 'Admin';
+    Color roleColor = role == 'Moderator' ? Colors.orange : Colors.blue;
+    
+    return Column(
+      children: [
+        InkWell(
+          onLongPress: () {
+            showOptionsBottomSheet(context, speakerDoc.id, speakerDoc['role']);
+          },
+          child: Stack(
+            children: [
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2),
+                ),
+                child: CircleAvatar(
+                  radius: 28,
+                  backgroundImage: NetworkImage(speakerDoc['image']),
+                ),
+              ),
+              if (role == 'Moderator')
+                Positioned(
+                  bottom: 0,
+                  right: 0,
+                  child: Container(
+                    padding: EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      color: Colors.orange,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 1),
+                    ),
+                    child: Icon(
+                      Icons.mic,
+                      color: Colors.white,
+                      size: 10,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        SizedBox(height: 6),
+        Text(
+          displayRole,
+          style: style(
+            family: AppFonts.gMedium,
+            size: 12,
+            clr: roleColor,
+          ),
+        ),
+        Text(
+          speakerDoc['username'],
+          style: style(
+            family: AppFonts.gMedium,
+            size: 10,
+            clr: Colors.white70,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAdminRow(List<QueryDocumentSnapshot> admins, String? roomOwnerId) {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 50),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          // Left admin
+          if (admins.length > 0) _buildAdminCard(admins[0], roomOwnerId),
+          
+          // Center user indicator
+          Container(
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppColor.red,
+              border: Border.all(color: Colors.white, width: 2),
+            ),
+            child: Center(
+              child: Text(
+                'U',
+                style: style(
+                  family: AppFonts.gBold,
+                  size: 24,
+                  clr: Colors.white,
+                ),
+              ),
+            ),
+          ),
+          
+          // Right admin
+          if (admins.length > 1) _buildAdminCard(admins[1], roomOwnerId)
+          else Container(width: 60), // Placeholder
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAdminCard(QueryDocumentSnapshot adminDoc, String? roomOwnerId) {
+    return Column(
+      children: [
+        InkWell(
+          onLongPress: () {
+            showOptionsBottomSheet(context, adminDoc.id, adminDoc['role']);
+          },
+          child: Container(
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 2),
+            ),
+            child: CircleAvatar(
+              radius: 28,
+              backgroundImage: NetworkImage(adminDoc['image']),
+            ),
+          ),
+        ),
+        SizedBox(height: 6),
+        Text(
+          'Admin',
+          style: style(
+            family: AppFonts.gMedium,
+            size: 12,
+            clr: Colors.white,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSpeakingSeats(List<QueryDocumentSnapshot> speakers, String? roomOwnerId) {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 8),
+      child: GridView.builder(
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 8, // 8 columns for 40 seats
+          mainAxisSpacing: 8,
+          crossAxisSpacing: 6,
+          childAspectRatio: 0.8,
+        ),
+        itemCount: 40, // Fixed 40 seats
+        itemBuilder: (context, index) {
+          if (index < speakers.length) {
+            // Occupied seat with speaker
+            var speaker = speakers[index];
+            return _buildOccupiedSpeakerSeat(speaker, index + 1, roomOwnerId);
+          } else {
+            // Empty seat
+            return _buildEmptySeat(index + 1);
+          }
+        },
+      ),
+    );
+  }
+
+  Widget _buildOccupiedSpeakerSeat(QueryDocumentSnapshot userDoc, int seatNumber, String? roomOwnerId) {
+    Map<String, dynamic> data = userDoc.data() as Map<String, dynamic>;
+    String role = data['role'] ?? 'Participant';
+    bool isModerator = role == 'Moderator';
+    bool isAdmin = role == 'Admin';
+    bool isMicOn = data.containsKey('isMicOn') ? (data['isMicOn'] ?? false) : false;
+    
+    return Column(
+      children: [
+        InkWell(
+          onLongPress: () {
+            showOptionsBottomSheet(context, userDoc.id, userDoc['role']);
+          },
+          child: Stack(
+            children: [
+              AnimatedContainer(
+                duration: Duration(milliseconds: 300),
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: isMicOn 
+                        ? Colors.green 
+                        : isModerator 
+                            ? Colors.orange 
+                            : isAdmin 
+                                ? Colors.blue 
+                                : Colors.white, 
+                    width: 2
+                  ),
+                  boxShadow: [
+                    if (isMicOn)
+                      BoxShadow(
+                        color: Colors.green.withOpacity(0.6),
+                        blurRadius: 8,
+                        spreadRadius: 1,
+                      ),
+                  ],
+                ),
+                child: CircleAvatar(
+                  radius: 18,
+                  backgroundImage: NetworkImage(userDoc['image']),
+                ),
+              ),
+              // Role indicator (top right)
+              if (isModerator)
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  child: Container(
+                    padding: EdgeInsets.all(1),
+                    decoration: BoxDecoration(
+                      color: Colors.orange,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 1),
+                    ),
+                    child: Icon(
+                      Icons.record_voice_over,
+                      color: Colors.white,
+                      size: 8,
+                    ),
+                  ),
+                ),
+              if (isAdmin)
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  child: Container(
+                    padding: EdgeInsets.all(1),
+                    decoration: BoxDecoration(
+                      color: Colors.blue,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 1),
+                    ),
+                    child: Icon(
+                      Icons.admin_panel_settings,
+                      color: Colors.white,
+                      size: 8,
+                    ),
+                  ),
+                ),
+              // Mic status indicator (bottom right)
+              Positioned(
+                bottom: 0,
+                right: 0,
+                child: AnimatedContainer(
+                  duration: Duration(milliseconds: 300),
+                  padding: EdgeInsets.all(1),
+                  decoration: BoxDecoration(
+                    color: isMicOn ? Colors.green : Colors.red,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 1),
+                    boxShadow: [
+                      if (isMicOn)
+                        BoxShadow(
+                          color: Colors.green.withOpacity(0.8),
+                          blurRadius: 4,
+                          spreadRadius: 0.5,
+                        ),
+                    ],
+                  ),
+                  child: Icon(
+                    isMicOn ? Icons.mic : Icons.mic_off,
+                    color: Colors.white,
+                    size: 8,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        SizedBox(height: 2),
+        Container(
+          height: 12,
+          child: Text(
+            userDoc['username'],
+            style: style(
+              family: AppFonts.gMedium,
+              size: 7,
+              clr: Colors.white,
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildParticipantSeats(List<QueryDocumentSnapshot> participants, String? roomOwnerId) {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 24),
+      child: GridView.builder(
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 4,
+          mainAxisSpacing: 16,
+          crossAxisSpacing: 12,
+          childAspectRatio: 0.85,
+        ),
+        itemCount: 12, // Fixed 12 seats
+        itemBuilder: (context, index) {
+          if (index < participants.length) {
+            // Occupied seat
+            var participant = participants[index];
+            return _buildOccupiedSeat(participant, index + 1, roomOwnerId);
+          } else {
+            // Empty seat
+            return _buildEmptySeat(index + 1);
+          }
+        },
+      ),
+    );
+  }
+
+  Widget _buildOccupiedSeat(QueryDocumentSnapshot userDoc, int seatNumber, String? roomOwnerId) {
+    return Column(
+      children: [
+        InkWell(
+          onLongPress: () {
+            showOptionsBottomSheet(context, userDoc.id, userDoc['role']);
+          },
+          child: Container(
+            width: 50,
+            height: 50,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 2),
+            ),
+            child: CircleAvatar(
+              radius: 23,
+              backgroundImage: NetworkImage(userDoc['image']),
+            ),
+          ),
+        ),
+        SizedBox(height: 4),
+        Text(
+          userDoc['username'],
+          style: style(
+            family: AppFonts.gMedium,
+            size: 10,
+            clr: Colors.white,
+          ),
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEmptySeat(int seatNumber) {
+    return Column(
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: Colors.black38,
+            border: Border.all(color: Colors.white30, width: 2),
+          ),
+          child: Icon(
+            Icons.person,
+            size: 20,
+            color: Colors.white30,
+          ),
+        ),
+        SizedBox(height: 2),
+        Container(
+          height: 12,
+          child: Text(
+            'No.$seatNumber',
+            style: style(
+              family: AppFonts.gMedium,
+              size: 7,
+              clr: Colors.white70,
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBottomBar(String userId) {
+    return StreamBuilder<DocumentSnapshot>(
+      stream: firestore
+          .collection('rooms')
+          .doc(widget.roomId)
+          .snapshots(),
+      builder: (context, roomSnapshot) {
+        if (roomSnapshot.connectionState == ConnectionState.waiting) {
+          return Container(height: 80);
+        }
+
+        String? roomOwnerId;
+        if (roomSnapshot.hasData && roomSnapshot.data!.exists) {
+          var roomData = roomSnapshot.data!.data() as Map<String, dynamic>?;
+          roomOwnerId = roomData?['admin'] as String?;
+        }
+
+        return StreamBuilder<DocumentSnapshot>(
+          stream: firestore
+              .collection('rooms')
+              .doc(widget.roomId)
+              .collection('joinedUsers')
+              .doc(userId)
+              .snapshots(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return Container(height: 80);
+            }
+
+            String userRole = 'Participant';
+            bool isMicOn = false;
+            bool isOwner = userId == roomOwnerId;
+
+            if (snapshot.hasData && snapshot.data!.exists) {
+              Map<String, dynamic>? data = snapshot.data!.data() as Map<String, dynamic>?;
+              if (data != null) {
+                userRole = data.containsKey('role') ? (data['role'] ?? 'Participant') : 'Participant';
+                isMicOn = data.containsKey('isMicOn') ? (data['isMicOn'] ?? false) : false;
+              }
+            }
+
+            // Show admin features for both Owner and Admin roles
+            bool canManageUsers = isOwner || userRole == 'Admin';
+
+            return Container(
+              margin: EdgeInsets.all(12),
+              padding: EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+              decoration: BoxDecoration(
+                color: Colors.black54,
+                borderRadius: BorderRadius.circular(25),
+                border: Border.all(color: Colors.white24),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  // Mute Button
+                  _buildBottomBarItem(
+                    icon: userRole == 'Participant' && !isOwner 
+                        ? Icons.mic_off 
+                        : isMicOn 
+                            ? Icons.mic 
+                            : Icons.mic_off,
+                    label: userRole == 'Participant' && !isOwner 
+                        ? 'Request Mic' 
+                        : isMicOn 
+                            ? 'Mute' 
+                            : 'Unmute',
+                    isActive: isMicOn,
+                    onTap: () {
+                      if (userRole == 'Participant' && !isOwner) {
+                        _showBottomSheet();
+                      } else {
+                        _toggleMic(userRole);
+                      }
+                    },
+                  ),
+                  
+                  // Gift Button
+                  _buildBottomBarItem(
+                    icon: Icons.card_giftcard,
+                    label: 'Gift',
+                    onTap: () {
+                      _showGiftsBottomSheet();
+                    },
+                  ),
+                  
+                  // Speak Requests Button (for Owner and Admins)
+                  if (canManageUsers)
+                    StreamBuilder<QuerySnapshot>(
+                      stream: firestore
+                          .collection('rooms')
+                          .doc(widget.roomId)
+                          .collection('speakRequests')
+                          .snapshots(),
+                      builder: (context, requestSnapshot) {
+                        bool hasRequests = requestSnapshot.hasData && 
+                                          requestSnapshot.data!.docs.isNotEmpty;
+                        
+                        return _buildBottomBarItem(
+                          icon: Icons.record_voice_over,
+                          label: 'Requests',
+                          isActive: hasRequests,
+                          onTap: () {
+                            showSpeakRequestsBottomSheet(context, widget.roomId);
+                          },
+                        );
+                      },
+                    ),
+                  
+                  // Participants Management Button (for Owner and Admins)  
+                  if (canManageUsers)
+                    _buildBottomBarItem(
+                      icon: Icons.group,
+                      label: 'Users',
+                      onTap: () {
+                        _showUserManagementBottomSheet();
+                      },
+                    ),
+
+                  // Background Change Button (for Owner only)
+                  if (isOwner)
+                    _buildBottomBarItem(
+                      icon: isUploadingImage ? Icons.hourglass_empty : Icons.wallpaper,
+                      label: 'Background',
+                      isActive: isUploadingImage,
+                      onTap: isUploadingImage ? null : () {
+                        _changeRoomBackground();
+                      },
+                    ),
+                  
+                  // Coins Display
+                  _buildCoinsDisplay(),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildBottomBarItem({
+    required IconData icon,
+    required String label,
+    bool isActive = false,
+    VoidCallback? onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: isActive ? AppColor.red : Colors.transparent,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              icon,
+              size: 20,
+              color: Colors.white,
+            ),
+          ),
+          SizedBox(height: 3),
+          Text(
+            label,
+            style: style(
+              family: AppFonts.gMedium,
+              size: 11,
+              clr: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCoinsDisplay() {
+    return Obx(() => Container(
+      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: AppColor.red,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white24),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.monetization_on,
+            color: Colors.white,
+            size: 14,
+          ),
+          SizedBox(width: 3),
+          Text(
+            walletController.formatCoins(walletController.userCoins.value),
+            style: style(
+              family: AppFonts.gBold,
+              size: 11,
+              clr: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    ));
+  }
+
+  void _showUserManagementBottomSheet() async {
+    try {
+      // Get room owner ID
+      DocumentSnapshot roomDoc = await firestore
+          .collection('rooms')
+          .doc(widget.roomId)
+          .get();
+      
+      String? roomOwnerId = roomDoc.data() != null 
+          ? (roomDoc.data() as Map<String, dynamic>)['admin'] as String?
+          : null;
+
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (context) {
+          return Container(
+            height: MediaQuery.of(context).size.height * 0.7,
+            child: Column(
+              children: [
+                Container(
+                  padding: EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColor.red,
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.group, color: Colors.white),
+                      SizedBox(width: 8),
+                      Text(
+                        'Room Members',
+                        style: style(
+                          family: AppFonts.gBold,
+                          size: 18,
+                          clr: Colors.white,
+                        ),
+                      ),
+                      Spacer(),
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: Icon(Icons.close, color: Colors.white),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: StreamBuilder<QuerySnapshot>(
+                    stream: firestore
+                        .collection('rooms')
+                        .doc(widget.roomId)
+                        .collection('joinedUsers')
+                        .snapshots(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return Center(child: CircularProgressIndicator());
+                      }
+                      
+                      if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                        return Center(child: Text('No users in room'));
+                      }
+
+                      var users = snapshot.data!.docs;
+                      
+                      return ListView.builder(
+                        itemCount: users.length,
                         itemBuilder: (context, index) {
-                          var userDoc = filteredDocs[index];
+                          var userDoc = users[index];
                           var userName = userDoc['username'];
                           var userImage = userDoc['image'];
                           var userRole = userDoc['role'];
-
-                          return Column(
-                            children: [
-                              InkWell(
-                                onLongPress: () {
-                                 (userRole=='Admin')? SizedBox(): showOptionsBottomSheet(
-                                      context, userDoc.id, userRole);
-                                },
-                                child: Center(
-                                  child: CircleAvatar(
-                                    radius: 30,
-                                    backgroundImage: NetworkImage(userImage),
-                                  ),
+                          bool isOwner = userDoc.id == roomOwnerId;
+                          
+                          return ListTile(
+                            leading: Stack(
+                              children: [
+                                CircleAvatar(
+                                  backgroundImage: NetworkImage(userImage),
+                                  radius: 24,
                                 ),
-                              ),
-                              SizedBox(height: space2),
-                              Text(
-                               userName,
-                                style: style(
-                                    family: AppFonts.gBold,
-                                    size: Get.width * .030),
-                                textAlign: TextAlign.center,
-                              ),
-                              Text(
-                                userRole,
-                                style: style(
-                                    family: AppFonts.gMedium,
-                                    size: Get.width * .03),
-                              ),
-                            ],
+                                if (isOwner)
+                                  Positioned(
+                                    bottom: 0,
+                                    right: 0,
+                                    child: Container(
+                                      padding: EdgeInsets.all(2),
+                                      decoration: BoxDecoration(
+                                        color: AppColor.red,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Icon(
+                                        Icons.star,
+                                        color: Colors.white,
+                                        size: 12,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            title: Text(userName),
+                            subtitle: Row(
+                              children: [
+                                Text(isOwner ? 'Owner' : userRole),
+                                if (userRole == 'Moderator') ...[
+                                  SizedBox(width: 8),
+                                  Container(
+                                    padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: Colors.orange,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.mic, color: Colors.white, size: 12),
+                                        SizedBox(width: 2),
+                                        Text(
+                                          'Speaking',
+                                          style: style(
+                                            family: AppFonts.gMedium,
+                                            size: 10,
+                                            clr: Colors.white,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            trailing: userDoc.id != FirebaseAuth.instance.currentUser!.uid
+                                ? IconButton(
+                                    icon: Icon(Icons.more_vert),
+                                    onPressed: () {
+                                      Navigator.pop(context);
+                                      showOptionsBottomSheet(context, userDoc.id, userRole);
+                                    },
+                                  )
+                                : Container(
+                                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: AppColor.red.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      'You',
+                                      style: style(
+                                        family: AppFonts.gMedium,
+                                        size: 12,
+                                        clr: AppColor.red,
+                                      ),
+                                    ),
+                                  ),
                           );
                         },
                       );
                     },
-                  );
-                },
-              ),
-            ),
-           StreamBuilder<DocumentSnapshot>(
-  stream: firestore
-      .collection('rooms')
-      .doc(widget.roomId)
-      .collection('joinedUsers')
-      .doc(userId)
-      .snapshots(),
-  builder: (context, snapshot) {
-    if (snapshot.connectionState == ConnectionState.waiting) {
-      return CircularProgressIndicator();
-    }
-
-    // Check for errors or no data
-    if (snapshot.hasError) {
-      return Text('Error: ${snapshot.error}');
-    }
-    if (!snapshot.hasData || !snapshot.data!.exists) {
-      return Text('User data not found');
-    }
-
-    // Safe access to data with null checks
-    Map<String, dynamic>? data = snapshot.data!.data() as Map<String, dynamic>?;
-    if (data == null) {
-      return Text('No data available');
-    }
-
-    bool isMicOn = data['isMicOn'] as bool? ?? false;
-    String userRole = data['role'] as String? ?? 'Participant'; // default to Participant if null
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Column(
-          children: [
-            InkWell(
-              onTap: () {
-                _showGiftsBottomSheet();
-              },
-              child: Container(
-                padding: EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                    border: Border.all(
-                      color: AppColor.black,
-                    ),
-                    shape: BoxShape.circle,
-                    color: const Color.fromARGB(140, 158, 158, 158)),
-                child: Icon(
-                  Icons.card_giftcard,
-                  size: 25,
-                ),
-              ),
-            ),
-            SizedBox(height: 4),
-            Obx(() => Container(
-              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: AppColor.red,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.monetization_on,
-                    color: AppColor.white,
-                    size: 14,
                   ),
-                  SizedBox(width: 2),
-                  Text(
-                    walletController.formatCoins(walletController.userCoins.value),
-                    style: style(
-                      family: AppFonts.gBold,
-                      size: 12,
-                      clr: AppColor.white,
-                    ),
-                  ),
-                ],
-              ),
-            )),
-          ],
-        ),
-       Align(
-        alignment: Alignment.bottomCenter,
-        child: Obx(() {
-          return InkWell(
-            onTap: () {
-              if (userRole == 'Participant') {
-                _showBottomSheet();
-              } else {
-                _toggleMic(userRole);
-              }
-            },
-            child: Container(
-              padding: EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                border: Border.all(
-                  color: micController.isMicOn.value ? AppColor.red : AppColor.black,
                 ),
-                shape: BoxShape.circle,
-                color: const Color.fromARGB(140, 158, 158, 158),
-              ),
-              child: Icon(
-                userRole == 'Participant' ? Icons.mic_off : Icons.mic,
-                size: 35,
-                color: micController.isMicOn.value ? AppColor.red : AppColor.black,
-              ),
+              ],
             ),
           );
-        }),
-      ),
-        (userRole == 'Admin') ? InkWell(
-          onTap: () {
-            showSpeakRequestsBottomSheet(context, widget.roomId);
-          },
-          child: Container(
-            padding: EdgeInsets.all(10),
-            decoration: BoxDecoration(
-                border: Border.all(
-                  color: AppColor.black,
-                ),
-                shape: BoxShape.circle,
-                color: const Color.fromARGB(140, 158, 158, 158)),
-            child: Icon(
-              Icons.add_alert,
-              size: 25,
-            ),
-          ),
-        ) : SizedBox()
-      ],
-    );
-  },
-),
-
-          ],
-        ),
-      ),
-
-      // Gift overlay
-      _buildGiftOverlay(),
-    ],
-  ),
-    );
+        },
+      );
+    } catch (e) {
+      print('Error showing user management: $e');
+    }
   }
 }

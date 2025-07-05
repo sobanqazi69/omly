@@ -50,20 +50,21 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyAmbbncKW2NSKfTH9OoieyMFlB5lFF2ZHM',
-    appId: '1:304131835356:android:c79fa763425bcd029cfb19',
-    messagingSenderId: '304131835356',
-    projectId: 'litchat-6a671',
-    storageBucket: 'litchat-6a671.firebasestorage.app',
+    apiKey: 'AIzaSyChdprE1d0lzQAd2apA9TjI5cc5eHWU1p0',
+    appId: '1:718109258397:android:d884286059417e188d9a74',
+    messagingSenderId: '718109258397',
+    projectId: 'omly-chat',
+    storageBucket: 'omly-chat.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyCUE3iHkY9AvwzlSnFBLQuV52NnbPuPRtw',
-    appId: '1:304131835356:ios:f4f0b750b2db074d9cfb19',
-    messagingSenderId: '304131835356',
-    projectId: 'litchat-6a671',
-    storageBucket: 'litchat-6a671.firebasestorage.app',
-    iosBundleId: 'com.example.live13',
+    apiKey: 'AIzaSyDwm5gmEPJyTCvcRfTCdsJTGh7Dkmik3F4',
+    appId: '1:718109258397:ios:f5180aa6ac4b65fe8d9a74',
+    messagingSenderId: '718109258397',
+    projectId: 'omly-chat',
+    storageBucket: 'omly-chat.firebasestorage.app',
+    iosClientId: '718109258397-tr96qaa8jlvfv86smki3b9ntmbcfrusr.apps.googleusercontent.com',
+    iosBundleId: 'com.omly.app',
   );
 
 }

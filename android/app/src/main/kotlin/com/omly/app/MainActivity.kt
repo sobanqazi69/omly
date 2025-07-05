@@ -1,4 +1,4 @@
-package com.live13.live13
+package com.omly.app
 
 import io.flutter.embedding.android.FlutterActivity
 
