@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:live_13/navigations/navigator.dart';
 import 'package:live_13/views/adminScreens/admin_home.dart';
-import 'package:live_13/views/userScreens/user_screen.dart';
 
 void deleteRoomAndRedirect(BuildContext context, String roomId, String userId, String userRole) async {
   try {
@@ -31,7 +30,7 @@ void deleteRoomAndRedirect(BuildContext context, String roomId, String userId, S
     if (userRole == 'Admin') {
       CustomNavigator().pushTo(context, AdminScreen());
     } else {
-      CustomNavigator().pushTo(context, UserScreen());
+      CustomNavigator().pushTo(context, AdminScreen());
     }
     Get.snackbar('OoPs', 'Room Has Been Deleted By Admin');
   } catch (e) {

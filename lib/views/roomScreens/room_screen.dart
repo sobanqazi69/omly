@@ -19,7 +19,7 @@ import 'package:live_13/controller/wallet_controller.dart';
 import 'package:live_13/models/user_model.dart';
 import 'package:live_13/services/agora_token_service.dart';
 import 'package:live_13/services/speak_user_request.dart';
-import 'package:live_13/views/userScreens/user_screen.dart';
+import 'package:live_13/views/adminScreens/admin_home.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:live_13/Config/app_spacing.dart';
 import 'package:live_13/Config/app_theme.dart';
@@ -1218,7 +1218,7 @@ Future<void> _kickFromRoom(String userId) async {
   void navigateToUserScreen() {
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(builder: (context) => UserScreen()),
+      MaterialPageRoute(builder: (context) => AdminScreen()),
     );
     // Get.snackbar('Oops', 'You Have Been Kicked By The Admin');
   }
@@ -1299,7 +1299,7 @@ Future<void> _kickFromRoom(String userId) async {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => UserScreen(),
+          builder: (context) => AdminScreen(),
           settings: RouteSettings(name: '/user_from_room'),
         ),
       );
@@ -1320,7 +1320,7 @@ Future<void> _kickFromRoom(String userId) async {
       // Fallback: navigate to user screen
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (context) => UserScreen()),
+        MaterialPageRoute(builder: (context) => AdminScreen()),
       );
     }
   }
@@ -1431,7 +1431,7 @@ Future<void> _kickFromRoom(String userId) async {
               
               // Navigate back to user screen and clear room from stack
               Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (context) => UserScreen()),
+                MaterialPageRoute(builder: (context) => AdminScreen()),
                 (route) => false,
               );
               
@@ -1450,7 +1450,7 @@ Future<void> _kickFromRoom(String userId) async {
               // Fallback: remove overlay and navigate
               overlayEntry?.remove();
               Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (context) => UserScreen()),
+                MaterialPageRoute(builder: (context) => AdminScreen()),
                 (route) => false,
               );
             }

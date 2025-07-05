@@ -7,7 +7,6 @@ import '../../config/app_colors.dart';
 import '../../navigations/navigator.dart';
 import '../../services/auth_service.dart';
 import '../adminScreens/admin_home.dart';
-import '../userScreens/user_screen.dart';
 
 class UserNameScreen extends StatefulWidget {
   final int navigationInteger;

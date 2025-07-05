@@ -5,7 +5,6 @@ import 'package:live_13/navigations/navigator.dart';
 import 'package:live_13/services/delete_room.dart';
 import 'package:live_13/views/adminScreens/admin_home.dart';
 import 'package:live_13/views/roomScreens/room_screen.dart';
-import 'package:live_13/views/userScreens/user_screen.dart';
 
 
 Future<void> leaveRoom(String userId, BuildContext context, String roomId, String userRole) async {
@@ -42,7 +41,7 @@ Future<void> leaveRoom(String userId, BuildContext context, String roomId, Strin
       if (userRole == 'Admin') {
         CustomNavigator().pushReplacement(context, AdminScreen());
       } else {
-        CustomNavigator().pushReplacement(context, UserScreen());
+        CustomNavigator().pushReplacement(context, AdminScreen());
       }
 
       print("User removed from room successfully!");

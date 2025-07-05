@@ -10,7 +10,6 @@ import 'package:live_13/navigations/navigator.dart';
 import 'package:live_13/views/authScreens/welcomeScreen.dart';
 import 'package:live_13/views/superAdmin/super_admin_screen.dart';
 import 'package:live_13/views/userNameScreen/user_name_screen.dart';
-import 'package:live_13/views/userScreens/user_screen.dart';
 import '../constants/constant_text.dart';
 import '../constants/constants.dart';
 
@@ -47,7 +46,7 @@ class LoginCheck {
           } else if (userData['role'] == 'Admin') {
             CustomNavigator().pushReplacement(context, AdminScreen());
           } else {
-            CustomNavigator().pushReplacement(context, UserScreen());
+            CustomNavigator().pushReplacement(context, AdminScreen());
           }
         } else {
           // Navigate to UserNameScreen if username is not set or empty

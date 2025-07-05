@@ -13,7 +13,6 @@ import 'package:live_13/navigations/navigator.dart';
 import 'package:live_13/views/authScreens/welcomeScreen.dart';
 import 'package:live_13/views/splashScreen/splash_screen.dart';
 import 'package:live_13/views/userNameScreen/user_name_screen.dart';
-import 'package:live_13/views/userScreens/user_screen.dart';
 
 import '../constants/constant_text.dart';
 import '../views/superAdmin/super_admin_screen.dart';
@@ -22,7 +21,15 @@ import '../views/superAdmin/super_admin_screen.dart';
 class AuthService {
       final DatabaseServices _firestoreService = DatabaseServices();
 
-
+  // Get current Firebase user
+  User? getCurrentUser() {
+    try {
+      return FirebaseAuth.instance.currentUser;
+    } catch (e) {
+      print('Error getting current user: $e');
+      return null;
+    }
+  }
 
   Future<void> signInWithGoogle(BuildContext context) async {
     try {

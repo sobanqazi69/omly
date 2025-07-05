@@ -15,7 +15,7 @@ import 'package:live_13/controller/gift_controller.dart';
 import 'package:live_13/controller/wallet_controller.dart';
 import 'package:live_13/models/user_model.dart';
 import 'package:live_13/services/agora_token_service.dart';
-import 'package:live_13/views/userScreens/user_screen.dart';
+import 'package:live_13/views/adminScreens/admin_home.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:live_13/config/app_colors.dart';
 import 'package:live_13/config/app_fonts.dart';
@@ -369,7 +369,7 @@ class _RoomScreenCleanState extends State<RoomScreenClean> with WidgetsBindingOb
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => UserScreen(),
+          builder: (context) => AdminScreen(),
           settings: RouteSettings(name: '/user_from_room'),
         ),
       );
@@ -384,7 +384,7 @@ class _RoomScreenCleanState extends State<RoomScreenClean> with WidgetsBindingOb
       );
     } catch (e) {
       print('Error minimizing room: $e');
-      Navigator.push(context, MaterialPageRoute(builder: (context) => UserScreen()));
+      Navigator.push(context, MaterialPageRoute(builder: (context) => AdminScreen()));
     }
   }
 
@@ -439,7 +439,7 @@ class _RoomScreenCleanState extends State<RoomScreenClean> with WidgetsBindingOb
               overlayEntry?.remove();
               await _disconnectAndLeaveRoom();
               Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (context) => UserScreen()),
+                MaterialPageRoute(builder: (context) => AdminScreen()),
                 (route) => false,
               );
               Get.snackbar('Disconnected', 'You have left the room completely',
@@ -627,7 +627,7 @@ class _RoomScreenCleanState extends State<RoomScreenClean> with WidgetsBindingOb
   }
 
   void _navigateToUserScreen() {
-    Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => UserScreen()));
+    Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => AdminScreen()));
   }
 
   @override
