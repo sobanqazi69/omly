@@ -27,6 +27,7 @@ import 'package:live_13/config/app_colors.dart';
 import 'package:live_13/config/app_fonts.dart';
 import 'package:live_13/constants/constant_text.dart';
 import 'package:live_13/services/leaving_room.dart';
+import 'package:live_13/views/roomScreens/widgets/room_chat.dart';
 
 const appId =
     "f0ac4696784a47baa71c64381cabbacd"; // Replace with your actual Agora App ID
@@ -2534,7 +2535,16 @@ Future<void> _kickFromRoom(String userId) async {
                     ),
                   
                   // Coins Display
-                  _buildCoinsDisplay(),
+                 // _buildCoinsDisplay(),
+
+                  // Chat Button
+                  _buildBottomBarItem(
+                    icon: Icons.chat_bubble_outline,
+                    label: 'Chat',
+                    onTap: () {
+                      _showChatSheet();
+                    },
+                  ),
                 ],
               ),
             );
@@ -2781,6 +2791,22 @@ Future<void> _kickFromRoom(String userId) async {
     } catch (e) {
       print('Error showing user management: $e');
     }
+  }
+
+  void _showChatSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.8,
+        decoration: BoxDecoration(
+          color: Theme.of(context).scaffoldBackgroundColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: RoomChat(roomId: widget.roomId),
+      ),
+    );
   }
 }
 
